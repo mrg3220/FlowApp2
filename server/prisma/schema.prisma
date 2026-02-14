@@ -1,0 +1,200 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────
+
+enum Role {
+  SUPER_ADMIN
+  OWNER
+  INSTRUCTOR
+  STUDENT
+}
+
+enum SkillLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  ALL_LEVELS
+}
+
+enum DayOfWeek {
+  MON
+  TUE
+  WED
+  THU
+  FRI
+  SAT
+  SUN
+}
+
+enum SessionStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum CheckInMethod {
+  ADMIN
+  KIOSK
+  QR_CODE
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  INACTIVE
+  TRANSFERRED
+}
+
+// ─── Models ──────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  firstName    String   @map("first_name")
+  lastName     String   @map("last_name")
+  phone        String?
+  role         Role     @default(STUDENT)
+  bio          String?
+  beltRank     String?  @map("belt_rank")
+  schoolId     String?  @map("school_id")   // Primary school affiliation (owner/instructor)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  school            School?      @relation("SchoolStaff", fields: [schoolId], references: [id])
+  ownedSchools      School[]     @relation("SchoolOwner")
+  instructedClasses Class[]      @relation("InstructorClasses")
+  enrollments       Enrollment[] @relation("StudentEnrollments")
+  checkIns          CheckIn[]    @relation("StudentCheckIns")
+  adminCheckIns     CheckIn[]    @relation("AdminCheckIns")
+
+  @@map("users")
+}
+
+model School {
+  id        String   @id @default(uuid())
+  name      String
+  address   String?
+  city      String?
+  state     String?
+  zip       String?
+  phone     String?
+  email     String?
+  ownerId   String   @map("owner_id")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  owner       User         @relation("SchoolOwner", fields: [ownerId], references: [id])
+  staff       User[]       @relation("SchoolStaff")
+  classes     Class[]
+  enrollments Enrollment[]
+
+  @@map("schools")
+}
+
+model Enrollment {
+  id         String           @id @default(uuid())
+  studentId  String           @map("student_id")
+  schoolId   String           @map("school_id")
+  status     EnrollmentStatus @default(ACTIVE)
+  enrolledAt DateTime         @default(now()) @map("enrolled_at")
+  leftAt     DateTime?        @map("left_at")
+
+  // Relations
+  student User   @relation("StudentEnrollments", fields: [studentId], references: [id])
+  school  School @relation(fields: [schoolId], references: [id])
+
+  // Only one active enrollment per student per school
+  @@unique([studentId, schoolId, status])
+  @@map("enrollments")
+}
+
+model Class {
+  id           String     @id @default(uuid())
+  name         String
+  discipline   String
+  skillLevel   SkillLevel @default(ALL_LEVELS) @map("skill_level")
+  capacity     Int
+  description  String?
+  instructorId String     @map("instructor_id")
+  schoolId     String     @map("school_id")
+  isActive     Boolean    @default(true) @map("is_active")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  // Relations
+  instructor   User            @relation("InstructorClasses", fields: [instructorId], references: [id])
+  school       School          @relation(fields: [schoolId], references: [id])
+  schedules    ClassSchedule[]
+  sessions     ClassSession[]
+
+  @@map("classes")
+}
+
+model ClassSchedule {
+  id             String    @id @default(uuid())
+  classId        String    @map("class_id")
+  dayOfWeek      DayOfWeek @map("day_of_week")
+  startTime      String    @map("start_time") // "HH:mm" format
+  endTime        String    @map("end_time")   // "HH:mm" format
+  effectiveFrom  DateTime  @map("effective_from")
+  effectiveUntil DateTime? @map("effective_until")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  class    Class          @relation(fields: [classId], references: [id], onDelete: Cascade)
+  sessions ClassSession[]
+
+  @@map("class_schedules")
+}
+
+model ClassSession {
+  id          String        @id @default(uuid())
+  classId     String        @map("class_id")
+  scheduleId  String?       @map("schedule_id")
+  sessionDate DateTime      @map("session_date") @db.Date
+  startTime   String        @map("start_time")
+  endTime     String        @map("end_time")
+  status      SessionStatus @default(SCHEDULED)
+  qrCode      String        @unique @map("qr_code")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  class    Class          @relation(fields: [classId], references: [id], onDelete: Cascade)
+  schedule ClassSchedule? @relation(fields: [scheduleId], references: [id])
+  checkIns CheckIn[]
+
+  @@map("class_sessions")
+}
+
+model CheckIn {
+  id           String        @id @default(uuid())
+  sessionId    String        @map("session_id")
+  studentId    String        @map("student_id")
+  method       CheckInMethod
+  checkedInBy  String?       @map("checked_in_by")
+  checkedInAt  DateTime      @default(now()) @map("checked_in_at")
+
+  // Relations
+  session ClassSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  student User         @relation("StudentCheckIns", fields: [studentId], references: [id])
+  admin   User?        @relation("AdminCheckIns", fields: [checkedInBy], references: [id])
+
+  // Prevent duplicate check-ins
+  @@unique([sessionId, studentId])
+  @@map("check_ins")
+}
