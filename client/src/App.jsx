@@ -17,6 +17,16 @@ import PromotionsPage from './pages/PromotionsPage';
 import NotificationsPage from './pages/NotificationsPage';
 import FamiliesPage from './pages/FamiliesPage';
 import StudentPortalPage from './pages/StudentPortalPage';
+import LeadsPage from './pages/LeadsPage';
+import CurriculumPage from './pages/CurriculumPage';
+import ReportingPage from './pages/ReportingPage';
+import WaiversPage from './pages/WaiversPage';
+import RetailPage from './pages/RetailPage';
+import CertificatesPage from './pages/CertificatesPage';
+import TrainingPlansPage from './pages/TrainingPlansPage';
+import PayrollPage from './pages/PayrollPage';
+import CompetitionsPage from './pages/CompetitionsPage';
+import VirtualClassesPage from './pages/VirtualClassesPage';
 
 function AppLayout({ children }) {
   return (
@@ -127,6 +137,86 @@ export default function App() {
         element={
           <ProtectedRoute>
             <AppLayout><StudentPortalPage /></AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/leads"
+        element={
+          <ProtectedRoute roles={['SUPER_ADMIN', 'OWNER', 'INSTRUCTOR']}>
+            <AppLayout><LeadsPage /></AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/curriculum"
+        element={
+          <ProtectedRoute>
+            <AppLayout><CurriculumPage /></AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/reporting"
+        element={
+          <ProtectedRoute roles={['SUPER_ADMIN', 'OWNER']}>
+            <AppLayout><ReportingPage /></AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/waivers"
+        element={
+          <ProtectedRoute>
+            <AppLayout><WaiversPage /></AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/shop"
+        element={
+          <ProtectedRoute>
+            <AppLayout><RetailPage /></AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/certificates"
+        element={
+          <ProtectedRoute>
+            <AppLayout><CertificatesPage /></AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/training-plans"
+        element={
+          <ProtectedRoute>
+            <AppLayout><TrainingPlansPage /></AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/payroll"
+        element={
+          <ProtectedRoute roles={['SUPER_ADMIN', 'OWNER']}>
+            <AppLayout><PayrollPage /></AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/competitions"
+        element={
+          <ProtectedRoute>
+            <AppLayout><CompetitionsPage /></AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/virtual"
+        element={
+          <ProtectedRoute>
+            <AppLayout><VirtualClassesPage /></AppLayout>
           </ProtectedRoute>
         }
       />

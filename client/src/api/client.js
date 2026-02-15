@@ -388,3 +388,156 @@ export const studentPortalApi = {
     return request(`/student-portal/schedule${query}`);
   },
 };
+
+// ─── Leads / CRM ─────────────────────────────────────────
+
+export const leadApi = {
+  getBySchool: (schoolId, params) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return request(`/leads/school/${schoolId}${query}`);
+  },
+  getById: (id) => request(`/leads/${id}`),
+  create: (schoolId, data) => request(`/leads/school/${schoolId}`, { method: 'POST', body: JSON.stringify(data) }),
+  update: (id, data) => request(`/leads/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  addActivity: (id, data) => request(`/leads/${id}/activity`, { method: 'POST', body: JSON.stringify(data) }),
+  getFunnel: (schoolId) => request(`/leads/school/${schoolId}/funnel`),
+  remove: (id) => request(`/leads/${id}`, { method: 'DELETE' }),
+};
+
+// ─── Curriculum ──────────────────────────────────────────
+
+export const curriculumApi = {
+  getAll: (params) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return request(`/curriculum${query}`);
+  },
+  getById: (id) => request(`/curriculum/${id}`),
+  getCategories: () => request('/curriculum/categories'),
+  create: (data) => request('/curriculum', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id, data) => request(`/curriculum/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  remove: (id) => request(`/curriculum/${id}`, { method: 'DELETE' }),
+};
+
+// ─── Financial Reporting ─────────────────────────────────
+
+export const reportingApi = {
+  getRevenue: (schoolId, params) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return request(`/reporting/revenue/${schoolId}${query}`);
+  },
+  getRevenueBySchool: () => request('/reporting/revenue-by-school'),
+  getPaymentMethods: (schoolId) => request(`/reporting/payment-methods/${schoolId}`),
+};
+
+// ─── Waivers ─────────────────────────────────────────────
+
+export const waiverApi = {
+  getMine: () => request('/waivers/mine'),
+  sign: (id, data) => request(`/waivers/${id}/sign`, { method: 'PUT', body: JSON.stringify(data) }),
+  getTemplates: (schoolId) => request(`/waivers/templates/${schoolId}`),
+  createTemplate: (schoolId, data) => request(`/waivers/templates/${schoolId}`, { method: 'POST', body: JSON.stringify(data) }),
+  updateTemplate: (id, data) => request(`/waivers/templates/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  getBySchool: (schoolId, params) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return request(`/waivers/school/${schoolId}${query}`);
+  },
+  send: (data) => request('/waivers/send', { method: 'POST', body: JSON.stringify(data) }),
+};
+
+// ─── Retail / Inventory ──────────────────────────────────
+
+export const retailApi = {
+  getProducts: (schoolId, params) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return request(`/retail/products/${schoolId}${query}`);
+  },
+  createProduct: (schoolId, data) => request(`/retail/products/${schoolId}`, { method: 'POST', body: JSON.stringify(data) }),
+  updateProduct: (id, data) => request(`/retail/products/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  updateInventory: (productId, data) => request(`/retail/inventory/${productId}`, { method: 'PUT', body: JSON.stringify(data) }),
+  getLowStock: (schoolId) => request(`/retail/low-stock/${schoolId}`),
+  getOrders: (schoolId, params) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return request(`/retail/orders/${schoolId}${query}`);
+  },
+  createOrder: (schoolId, data) => request(`/retail/orders/${schoolId}`, { method: 'POST', body: JSON.stringify(data) }),
+  updateOrderStatus: (id, status) => request(`/retail/orders/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+};
+
+// ─── Certificates ────────────────────────────────────────
+
+export const certificateApi = {
+  getTemplates: (schoolId) => request(`/certificates/templates/${schoolId || ''}`),
+  createTemplate: (data) => request('/certificates/templates', { method: 'POST', body: JSON.stringify(data) }),
+  updateTemplate: (id, data) => request(`/certificates/templates/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteTemplate: (id) => request(`/certificates/templates/${id}`, { method: 'DELETE' }),
+  getAll: (params) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return request(`/certificates${query}`);
+  },
+  generate: (data) => request('/certificates/generate', { method: 'POST', body: JSON.stringify(data) }),
+};
+
+// ─── Training Plans ──────────────────────────────────────
+
+export const trainingPlanApi = {
+  getMyPlans: () => request('/training-plans/mine'),
+  getBySchool: (schoolId) => request(`/training-plans/school/${schoolId}`),
+  getById: (id) => request(`/training-plans/${id}`),
+  create: (schoolId, data) => request(`/training-plans/school/${schoolId}`, { method: 'POST', body: JSON.stringify(data) }),
+  update: (id, data) => request(`/training-plans/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  remove: (id) => request(`/training-plans/${id}`, { method: 'DELETE' }),
+  addExercise: (planId, data) => request(`/training-plans/${planId}/exercises`, { method: 'POST', body: JSON.stringify(data) }),
+  updateExercise: (id, data) => request(`/training-plans/exercises/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteExercise: (id) => request(`/training-plans/exercises/${id}`, { method: 'DELETE' }),
+  assign: (planId, data) => request(`/training-plans/${planId}/assign`, { method: 'POST', body: JSON.stringify(data) }),
+};
+
+// ─── Payroll ─────────────────────────────────────────────
+
+export const payrollApi = {
+  getEntries: (schoolId, params) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return request(`/payroll/school/${schoolId}${query}`);
+  },
+  getSummary: (schoolId, params) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return request(`/payroll/summary/${schoolId}${query}`);
+  },
+  create: (schoolId, data) => request(`/payroll/school/${schoolId}`, { method: 'POST', body: JSON.stringify(data) }),
+  approve: (ids) => request('/payroll/approve', { method: 'POST', body: JSON.stringify({ ids }) }),
+  markPaid: (ids) => request('/payroll/mark-paid', { method: 'POST', body: JSON.stringify({ ids }) }),
+  remove: (id) => request(`/payroll/${id}`, { method: 'DELETE' }),
+};
+
+// ─── Competitions ────────────────────────────────────────
+
+export const competitionApi = {
+  getAll: (params) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return request(`/competitions${query}`);
+  },
+  getById: (id) => request(`/competitions/${id}`),
+  create: (data) => request('/competitions', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id, data) => request(`/competitions/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  remove: (id) => request(`/competitions/${id}`, { method: 'DELETE' }),
+  addEntry: (id, data) => request(`/competitions/${id}/entries`, { method: 'POST', body: JSON.stringify(data) }),
+  updateEntry: (compId, entryId, data) => request(`/competitions/${compId}/entries/${entryId}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteEntry: (compId, entryId) => request(`/competitions/${compId}/entries/${entryId}`, { method: 'DELETE' }),
+  getStudentMedals: (studentId) => request(`/competitions/student/${studentId}/medals`),
+};
+
+// ─── Virtual / Online Classes ────────────────────────────
+
+export const virtualApi = {
+  getContent: (params) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return request(`/virtual${query}`);
+  },
+  getById: (id) => request(`/virtual/${id}`),
+  getStats: (id) => request(`/virtual/${id}/stats`),
+  create: (data) => request('/virtual', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id, data) => request(`/virtual/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  remove: (id) => request(`/virtual/${id}`, { method: 'DELETE' }),
+  recordView: (id, data) => request(`/virtual/${id}/view`, { method: 'POST', body: JSON.stringify(data) }),
+  getMyViews: () => request('/virtual/my-views'),
+};

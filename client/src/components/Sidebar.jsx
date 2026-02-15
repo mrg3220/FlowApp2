@@ -63,6 +63,44 @@ export default function Sidebar() {
         <NavLink to="/student-portal" className={({ isActive }) => (isActive ? 'active' : '')}>
           🎓 My Portal
         </NavLink>
+
+        {isStaff && (
+          <NavLink to="/leads" className={({ isActive }) => (isActive ? 'active' : '')}>
+            📋 CRM / Leads
+          </NavLink>
+        )}
+        <NavLink to="/curriculum" className={({ isActive }) => (isActive ? 'active' : '')}>
+          📚 Curriculum
+        </NavLink>
+        {(isSuperAdmin || isOwner) && (
+          <NavLink to="/reporting" className={({ isActive }) => (isActive ? 'active' : '')}>
+            📊 Reports
+          </NavLink>
+        )}
+        <NavLink to="/waivers" className={({ isActive }) => (isActive ? 'active' : '')}>
+          📝 Waivers
+        </NavLink>
+        <NavLink to="/shop" className={({ isActive }) => (isActive ? 'active' : '')}>
+          🛍️ Shop
+        </NavLink>
+        <NavLink to="/certificates" className={({ isActive }) => (isActive ? 'active' : '')}>
+          🏅 Certificates
+        </NavLink>
+        <NavLink to="/training-plans" className={({ isActive }) => (isActive ? 'active' : '')}>
+          🏋️ Training Plans
+        </NavLink>
+        {(isSuperAdmin || isOwner) && (
+          <NavLink to="/payroll" className={({ isActive }) => (isActive ? 'active' : '')}>
+            💰 Payroll
+          </NavLink>
+        )}
+        <NavLink to="/competitions" className={({ isActive }) => (isActive ? 'active' : '')}>
+          🏆 Competitions
+        </NavLink>
+        <NavLink to="/virtual" className={({ isActive }) => (isActive ? 'active' : '')}>
+          📺 Virtual Classes
+        </NavLink>
+
         <NavLink to="/profile" className={({ isActive }) => (isActive ? 'active' : '')}>
           👤 Profile
         </NavLink>

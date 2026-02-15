@@ -132,6 +132,74 @@ enum NotificationType {
   TEST_SCHEDULED
   INVOICE_CREATED
   GENERAL
+  LEAD_FOLLOWUP
+  TRIAL_REMINDER
+}
+
+// ─── F7 Lead/Prospect CRM ───────────────────────────────
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  TRIAL_SCHEDULED
+  TRIAL_COMPLETED
+  CONVERTED
+  LOST
+}
+
+enum LeadSource {
+  WEBSITE
+  REFERRAL
+  WALK_IN
+  SOCIAL_MEDIA
+  ADVERTISING
+  EVENT
+  OTHER
+}
+
+// ─── F10 Digital Waivers ─────────────────────────────────
+
+enum WaiverStatus {
+  PENDING
+  SIGNED
+  EXPIRED
+  REVOKED
+}
+
+// ─── F11 Retail / Inventory ──────────────────────────────
+
+enum OrderStatus {
+  PENDING
+  PAID
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+// ─── F15 Instructor Payroll ──────────────────────────────
+
+enum PayrollStatus {
+  PENDING
+  APPROVED
+  PAID
+}
+
+// ─── F16 Competition ─────────────────────────────────────
+
+enum MedalType {
+  GOLD
+  SILVER
+  BRONZE
+  NONE
+}
+
+// ─── F17 Virtual Classes ─────────────────────────────────
+
+enum ContentType {
+  VIDEO
+  DOCUMENT
+  LINK
 }
 
 // ─── Models ──────────────────────────────────────────────
@@ -170,6 +238,23 @@ model User {
   dateOfBirth        DateTime?     @map("date_of_birth")
   familyMembers      FamilyMember[] @relation("UserFamilyMember")
 
+  // F7 CRM
+  assignedLeads      Lead[]        @relation("AssignedToUser")
+  leadActivities     LeadActivity[] @relation("LeadActivityUser")
+  // F10 Waivers
+  waivers            Waiver[]       @relation("UserWaivers")
+  // F11 Retail
+  orders             Order[]        @relation("UserOrders")
+  // F13 Training Plans
+  assignedPlans      TrainingPlanAssignment[] @relation("UserTrainingPlans")
+  // F15 Payroll
+  payrollEntries     PayrollEntry[] @relation("InstructorPayroll")
+  approvedPayroll    PayrollEntry[] @relation("PayrollApprover")
+  // F16 Competitions
+  competitionEntries CompetitionEntry[] @relation("CompetitorEntries")
+  // F17 Virtual
+  videoViews         VideoView[]    @relation("UserVideoViews")
+
   @@map("users")
 }
 
@@ -202,6 +287,27 @@ model School {
   notifications         Notification[] @relation("SchoolNotifications")
 
   families         Family[]     @relation("SchoolFamilies")
+
+  // F7 CRM
+  leads              Lead[]       @relation("SchoolLeads")
+  // F8 Curriculum
+  curriculumItems    CurriculumItem[] @relation("SchoolCurriculum")
+  // F10 Waivers
+  waiverTemplates    WaiverTemplate[] @relation("SchoolWaiverTemplates")
+  waivers            Waiver[]         @relation("SchoolWaivers")
+  // F11 Retail
+  products           Product[]        @relation("SchoolProducts")
+  orders             Order[]          @relation("SchoolOrders")
+  // F12 Certificates
+  certificateTemplates CertificateTemplate[] @relation("SchoolCertTemplates")
+  // F13 Training Plans
+  trainingPlans      TrainingPlan[]   @relation("SchoolTrainingPlans")
+  // F15 Payroll
+  payrollEntries     PayrollEntry[]   @relation("SchoolPayroll")
+  // F16 Competitions
+  competitions       Competition[]    @relation("SchoolCompetitions")
+  // F17 Virtual
+  virtualContent     VirtualContent[] @relation("SchoolVirtualContent")
 
   @@map("schools")
 }
@@ -274,6 +380,7 @@ model Class {
   school       School          @relation(fields: [schoolId], references: [id])
   schedules    ClassSchedule[]
   sessions     ClassSession[]
+  trainingPlanAssignments TrainingPlanAssignment[] @relation("ClassTrainingPlans")
 
   @@map("classes")
 }
@@ -311,6 +418,7 @@ model ClassSession {
   class    Class          @relation(fields: [classId], references: [id], onDelete: Cascade)
   schedule ClassSchedule? @relation(fields: [scheduleId], references: [id])
   checkIns CheckIn[]
+  payrollEntries PayrollEntry[] @relation("SessionPayroll")
 
   @@map("class_sessions")
 }
@@ -458,6 +566,8 @@ model Program {
   school      School?             @relation(fields: [schoolId], references: [id])
   belts       Belt[]
   enrollments ProgramEnrollment[]
+  curriculumItems  CurriculumItem[]  @relation("CurriculumProgram")
+  virtualContent   VirtualContent[]  @relation("VirtualContentProgram")
 
   @@map("programs")
 }
@@ -477,6 +587,8 @@ model Belt {
   promotionsTo   Promotion[]         @relation("PromotionToBelt")
   promotionsFrom Promotion[]         @relation("PromotionFromBelt")
   tests          BeltTest[]
+  curriculumItems  CurriculumItem[] @relation("CurriculumBelt")
+  virtualContent   VirtualContent[] @relation("VirtualContentBelt")
 
   @@unique([programId, displayOrder])
   @@map("belts")
@@ -548,6 +660,7 @@ model Promotion {
   fromBelt   Belt?             @relation("PromotionFromBelt", fields: [fromBeltId], references: [id])
   toBelt     Belt              @relation("PromotionToBelt", fields: [toBeltId], references: [id])
   promotedBy User              @relation("PromotedByUser", fields: [promotedById], references: [id])
+  certificates Certificate[]
 
   @@map("promotions")
 }
@@ -641,4 +754,386 @@ model NotificationPreference {
 
   @@unique([userId, type, channel])
   @@map("notification_preferences")
+}
+
+// ═══════════════════════════════════════════════════════════
+// F7 — Lead / Prospect Management (CRM)
+// ═══════════════════════════════════════════════════════════
+
+model Lead {
+  id          String     @id @default(uuid())
+  schoolId    String     @map("school_id")
+  firstName   String     @map("first_name")
+  lastName    String     @map("last_name")
+  email       String?
+  phone       String?
+  source      LeadSource @default(WALK_IN)
+  status      LeadStatus @default(NEW)
+  assignedToId String?   @map("assigned_to_id")
+  trialDate   DateTime?  @map("trial_date")
+  convertedAt DateTime?  @map("converted_at")
+  notes       String?
+  tags        String?    // comma-separated tags
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  school     School         @relation("SchoolLeads", fields: [schoolId], references: [id])
+  assignedTo User?          @relation("AssignedToUser", fields: [assignedToId], references: [id])
+  activities LeadActivity[]
+
+  @@map("leads")
+}
+
+model LeadActivity {
+  id        String   @id @default(uuid())
+  leadId    String   @map("lead_id")
+  userId    String?  @map("user_id")  // who performed
+  action    String   // CALLED, EMAILED, TRIAL_CLASS, NOTE, STATUS_CHANGE
+  notes     String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  lead Lead  @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  user User? @relation("LeadActivityUser", fields: [userId], references: [id])
+
+  @@map("lead_activities")
+}
+
+// ═══════════════════════════════════════════════════════════
+// F8 — Curriculum / Technique Library
+// ═══════════════════════════════════════════════════════════
+
+model CurriculumItem {
+  id          String   @id @default(uuid())
+  schoolId    String?  @map("school_id")  // null = global
+  programId   String?  @map("program_id")
+  beltId      String?  @map("belt_id")
+  title       String
+  description String?
+  category    String?  // "Strikes", "Forms", "Self-defense"
+  videoUrl    String?  @map("video_url")
+  imageUrl    String?  @map("image_url")
+  sortOrder   Int      @default(0) @map("sort_order")
+  isPublic    Boolean  @default(true) @map("is_public") // students can view at home
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  school  School?  @relation("SchoolCurriculum", fields: [schoolId], references: [id])
+  program Program? @relation("CurriculumProgram", fields: [programId], references: [id])
+  belt    Belt?    @relation("CurriculumBelt", fields: [beltId], references: [id])
+
+  @@map("curriculum_items")
+}
+
+// ═══════════════════════════════════════════════════════════
+// F10 — Digital Waivers & Contracts
+// ═══════════════════════════════════════════════════════════
+
+model WaiverTemplate {
+  id        String   @id @default(uuid())
+  schoolId  String   @map("school_id")
+  title     String
+  body      String   // HTML or markdown
+  version   Int      @default(1)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  school  School   @relation("SchoolWaiverTemplates", fields: [schoolId], references: [id])
+  waivers Waiver[]
+
+  @@map("waiver_templates")
+}
+
+model Waiver {
+  id         String       @id @default(uuid())
+  templateId String       @map("template_id")
+  schoolId   String       @map("school_id")
+  userId     String       @map("user_id")
+  status     WaiverStatus @default(PENDING)
+  signedAt   DateTime?    @map("signed_at")
+  signatureData String?   @map("signature_data") // base64 signature image or typed name
+  ipAddress  String?      @map("ip_address")
+  expiresAt  DateTime?    @map("expires_at")
+  createdAt  DateTime     @default(now()) @map("created_at")
+
+  template WaiverTemplate @relation(fields: [templateId], references: [id])
+  school   School         @relation("SchoolWaivers", fields: [schoolId], references: [id])
+  user     User           @relation("UserWaivers", fields: [userId], references: [id])
+
+  @@map("waivers")
+}
+
+// ═══════════════════════════════════════════════════════════
+// F11 — Retail / Inventory / Webshop
+// ═══════════════════════════════════════════════════════════
+
+model Product {
+  id          String   @id @default(uuid())
+  schoolId    String   @map("school_id")
+  name        String
+  description String?
+  sku         String?
+  price       Float
+  costPrice   Float?   @map("cost_price")
+  imageUrl    String?  @map("image_url")
+  category    String?  // "Uniforms", "Gear", "Merchandise"
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  school     School      @relation("SchoolProducts", fields: [schoolId], references: [id])
+  inventory  Inventory[]
+  orderItems OrderItem[]
+
+  @@map("products")
+}
+
+model Inventory {
+  id        String   @id @default(uuid())
+  productId String   @map("product_id")
+  size      String?  // "S", "M", "L", "XL"
+  color     String?
+  quantity  Int      @default(0)
+  lowStockThreshold Int @default(5) @map("low_stock_threshold")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, size, color])
+  @@map("inventory")
+}
+
+model Order {
+  id           String      @id @default(uuid())
+  orderNumber  String      @unique @map("order_number")
+  schoolId     String      @map("school_id")
+  customerId   String      @map("customer_id")
+  status       OrderStatus @default(PENDING)
+  subtotal     Float
+  taxAmount    Float       @default(0) @map("tax_amount")
+  totalAmount  Float       @map("total_amount")
+  notes        String?
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+
+  school   School      @relation("SchoolOrders", fields: [schoolId], references: [id])
+  customer User        @relation("UserOrders", fields: [customerId], references: [id])
+  items    OrderItem[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String @id @default(uuid())
+  orderId   String @map("order_id")
+  productId String @map("product_id")
+  quantity  Int
+  unitPrice Float  @map("unit_price")
+  size      String?
+  color     String?
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("order_items")
+}
+
+// ═══════════════════════════════════════════════════════════
+// F12 — Belt Certificate Designer
+// ═══════════════════════════════════════════════════════════
+
+model CertificateTemplate {
+  id          String   @id @default(uuid())
+  schoolId    String?  @map("school_id")  // null = global
+  name        String
+  description String?
+  layoutJson  String   @map("layout_json") // JSON: positions of fields, logo, borders
+  isDefault   Boolean  @default(false) @map("is_default")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  school       School?       @relation("SchoolCertTemplates", fields: [schoolId], references: [id])
+  certificates Certificate[]
+
+  @@map("certificate_templates")
+}
+
+model Certificate {
+  id           String   @id @default(uuid())
+  templateId   String   @map("template_id")
+  promotionId  String   @map("promotion_id")
+  studentName  String   @map("student_name")
+  beltName     String   @map("belt_name")
+  programName  String   @map("program_name")
+  schoolName   String   @map("school_name")
+  awardedDate  DateTime @map("awarded_date")
+  pdfUrl       String?  @map("pdf_url")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  template  CertificateTemplate @relation(fields: [templateId], references: [id])
+  promotion Promotion           @relation(fields: [promotionId], references: [id])
+
+  @@map("certificates")
+}
+
+// ═══════════════════════════════════════════════════════════
+// F13 — Training Plans
+// ═══════════════════════════════════════════════════════════
+
+model TrainingPlan {
+  id          String   @id @default(uuid())
+  schoolId    String   @map("school_id")
+  name        String
+  description String?
+  category    String?  // "Conditioning", "Technique", "Sparring"
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  school      School                  @relation("SchoolTrainingPlans", fields: [schoolId], references: [id])
+  exercises   TrainingPlanExercise[]
+  assignments TrainingPlanAssignment[]
+
+  @@map("training_plans")
+}
+
+model TrainingPlanExercise {
+  id          String  @id @default(uuid())
+  planId      String  @map("plan_id")
+  name        String
+  description String?
+  sets        Int?
+  reps        String? // "10" or "30 sec"
+  duration    String? // "5 min"
+  videoUrl    String? @map("video_url")
+  sortOrder   Int     @default(0) @map("sort_order")
+
+  plan TrainingPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@map("training_plan_exercises")
+}
+
+model TrainingPlanAssignment {
+  id         String    @id @default(uuid())
+  planId     String    @map("plan_id")
+  userId     String?   @map("user_id")     // assigned to specific student
+  classId    String?   @map("class_id")    // or assigned to a class
+  assignDate DateTime  @map("assign_date") @db.Date
+  notes      String?
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  plan  TrainingPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  user  User?        @relation("UserTrainingPlans", fields: [userId], references: [id])
+  class Class?       @relation("ClassTrainingPlans", fields: [classId], references: [id])
+
+  @@map("training_plan_assignments")
+}
+
+// ═══════════════════════════════════════════════════════════
+// F15 — Instructor Payroll / Hours Tracking
+// ═══════════════════════════════════════════════════════════
+
+model PayrollEntry {
+  id            String        @id @default(uuid())
+  schoolId      String        @map("school_id")
+  instructorId  String        @map("instructor_id")
+  sessionId     String?       @map("session_id")
+  hoursWorked   Float         @map("hours_worked")
+  hourlyRate    Float         @map("hourly_rate")
+  totalPay      Float         @map("total_pay")
+  date          DateTime      @db.Date
+  status        PayrollStatus @default(PENDING)
+  approvedById  String?       @map("approved_by_id")
+  approvedAt    DateTime?     @map("approved_at")
+  notes         String?
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  school     School        @relation("SchoolPayroll", fields: [schoolId], references: [id])
+  instructor User          @relation("InstructorPayroll", fields: [instructorId], references: [id])
+  session    ClassSession?  @relation("SessionPayroll", fields: [sessionId], references: [id])
+  approvedBy User?         @relation("PayrollApprover", fields: [approvedById], references: [id])
+
+  @@map("payroll_entries")
+}
+
+// ═══════════════════════════════════════════════════════════
+// F16 — Competition Results Tracking
+// ═══════════════════════════════════════════════════════════
+
+model Competition {
+  id        String   @id @default(uuid())
+  schoolId  String?  @map("school_id")  // null = open
+  name      String
+  location  String?
+  eventDate DateTime @map("event_date") @db.Date
+  notes     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  school  School?            @relation("SchoolCompetitions", fields: [schoolId], references: [id])
+  entries CompetitionEntry[]
+
+  @@map("competitions")
+}
+
+model CompetitionEntry {
+  id            String    @id @default(uuid())
+  competitionId String    @map("competition_id")
+  studentId     String    @map("student_id")
+  division      String?   // "Youth Sparring", "Adult Forms"
+  weightClass   String?   @map("weight_class")
+  placement     Int?      // 1, 2, 3...
+  medal         MedalType @default(NONE)
+  notes         String?
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  competition Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  student     User        @relation("CompetitorEntries", fields: [studentId], references: [id])
+
+  @@map("competition_entries")
+}
+
+// ═══════════════════════════════════════════════════════════
+// F17 — Online / Virtual Classes
+// ═══════════════════════════════════════════════════════════
+
+model VirtualContent {
+  id          String      @id @default(uuid())
+  schoolId    String?     @map("school_id")
+  title       String
+  description String?
+  contentType ContentType @default(VIDEO) @map("content_type")
+  url         String      // video URL, document link
+  thumbnailUrl String?    @map("thumbnail_url")
+  category    String?     // "Beginner", "Advanced", "Sparring Drills"
+  programId   String?     @map("program_id")
+  beltId      String?     @map("belt_id")
+  duration    Int?        // minutes
+  isPublic    Boolean     @default(false) @map("is_public")
+  sortOrder   Int         @default(0) @map("sort_order")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  school  School?     @relation("SchoolVirtualContent", fields: [schoolId], references: [id])
+  program Program?    @relation("VirtualContentProgram", fields: [programId], references: [id])
+  belt    Belt?       @relation("VirtualContentBelt", fields: [beltId], references: [id])
+  views   VideoView[]
+
+  @@map("virtual_content")
+}
+
+model VideoView {
+  id        String   @id @default(uuid())
+  contentId String   @map("content_id")
+  userId    String   @map("user_id")
+  watchedSeconds Int @default(0) @map("watched_seconds")
+  completed Boolean  @default(false)
+  viewedAt  DateTime @default(now()) @map("viewed_at")
+
+  content VirtualContent @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  user    User           @relation("UserVideoViews", fields: [userId], references: [id])
+
+  @@index([contentId, userId])
+  @@map("video_views")
 }

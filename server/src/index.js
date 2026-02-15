@@ -20,6 +20,16 @@ const promotionRoutes = require('./routes/promotions');
 const notificationRoutes = require('./routes/notifications');
 const familyRoutes = require('./routes/families');
 const studentPortalRoutes = require('./routes/studentPortal');
+const leadRoutes = require('./routes/leads');
+const curriculumRoutes = require('./routes/curriculum');
+const reportingRoutes = require('./routes/reporting');
+const waiverRoutes = require('./routes/waivers');
+const retailRoutes = require('./routes/retail');
+const certificateRoutes = require('./routes/certificates');
+const trainingPlanRoutes = require('./routes/trainingPlans');
+const payrollRoutes = require('./routes/payroll');
+const competitionRoutes = require('./routes/competitions');
+const virtualRoutes = require('./routes/virtual');
 
 const app = express();
 
@@ -47,6 +57,16 @@ app.use('/api/promotions', promotionRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/families', familyRoutes);
 app.use('/api/student-portal', studentPortalRoutes);
+app.use('/api/leads', leadRoutes);
+app.use('/api/curriculum', curriculumRoutes);
+app.use('/api/reporting', reportingRoutes);
+app.use('/api/waivers', waiverRoutes);
+app.use('/api/retail', retailRoutes);
+app.use('/api/certificates', certificateRoutes);
+app.use('/api/training-plans', trainingPlanRoutes);
+app.use('/api/payroll', payrollRoutes);
+app.use('/api/competitions', competitionRoutes);
+app.use('/api/virtual', virtualRoutes);
 
 // ─── 404 handler ─────────────────────────────────────────
 app.use((_req, res) => {
