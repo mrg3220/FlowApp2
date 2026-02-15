@@ -1,4 +1,5 @@
 const prisma = require('../config/database');
+const logger = require('../utils/logger');
 
 // ─── Help Articles ───────────────────────────────────────
 
@@ -174,7 +175,7 @@ const aiChat = async (req, res, next) => {
           });
         }
       } catch (aiError) {
-        console.error('OpenAI API error:', aiError.message);
+        logger.error(`OpenAI API error: ${aiError.message}`);
       }
     }
 

@@ -8,6 +8,7 @@
  */
 const cron = require('node-cron');
 const prisma = require('../config/database');
+const logger = require('../utils/logger');
 
 /**
  * Calculate the next invoice date based on a billing cycle.
@@ -57,7 +58,7 @@ async function nextInvoiceNumber(schoolId) {
  */
 async function generateAutoInvoices() {
   const now = new Date();
-  console.log(`[AutoInvoice] Running auto-invoice generation at ${now.toISOString()}`);
+  logger.info(`[AutoInvoice] Running auto-invoice generation at ${now.toISOString()}`);
 
   // Find all active subscriptions due for invoicing
   const subscriptions = await prisma.subscription.findMany({
@@ -73,11 +74,11 @@ async function generateAutoInvoices() {
   });
 
   if (subscriptions.length === 0) {
-    console.log('[AutoInvoice] No subscriptions due for invoicing.');
+    logger.info('[AutoInvoice] No subscriptions due for invoicing.');
     return { generated: 0, errors: 0, details: [] };
   }
 
-  console.log(`[AutoInvoice] Found ${subscriptions.length} subscriptions to invoice.`);
+  logger.info(`[AutoInvoice] Found ${subscriptions.length} subscriptions to invoice.`);
 
   let generated = 0;
   let errors = 0;
@@ -132,14 +133,14 @@ async function generateAutoInvoices() {
         nextInvoiceDate: nextDate.toISOString(),
       });
 
-      console.log(`[AutoInvoice] Created ${invoiceNumber} for ${sub.student.firstName} ${sub.student.lastName} — $${totalAmount}`);
+      logger.info(`[AutoInvoice] Created ${invoiceNumber} for ${sub.student.firstName} ${sub.student.lastName} — $${totalAmount}`);
     } catch (err) {
       errors++;
-      console.error(`[AutoInvoice] Error processing subscription ${sub.id}:`, err.message);
+      logger.error(`[AutoInvoice] Error processing subscription ${sub.id}: ${err.message}`);
     }
   }
 
-  console.log(`[AutoInvoice] Complete: ${generated} invoices generated, ${errors} errors.`);
+  logger.info(`[AutoInvoice] Complete: ${generated} invoices generated, ${errors} errors.`);
   return { generated, errors, details };
 }
 
@@ -157,7 +158,7 @@ async function markOverdueInvoices() {
   });
 
   if (result.count > 0) {
-    console.log(`[AutoInvoice] Marked ${result.count} invoices as PAST_DUE.`);
+    logger.info(`[AutoInvoice] Marked ${result.count} invoices as PAST_DUE.`);
   }
   return result.count;
 }
@@ -173,7 +174,7 @@ function startScheduler() {
     try {
       await generateAutoInvoices();
     } catch (err) {
-      console.error('[AutoInvoice] Scheduler error (invoice generation):', err);
+      logger.error(`[AutoInvoice] Scheduler error (invoice generation): ${err.message}`);
     }
   });
 
@@ -182,11 +183,11 @@ function startScheduler() {
     try {
       await markOverdueInvoices();
     } catch (err) {
-      console.error('[AutoInvoice] Scheduler error (overdue check):', err);
+      logger.error(`[AutoInvoice] Scheduler error (overdue check): ${err.message}`);
     }
   });
 
-  console.log('📅 Auto-invoice scheduler started (1st of month @ 00:05, overdue check daily @ 01:00)');
+  logger.info('📅 Auto-invoice scheduler started (1st of month @ 00:05, overdue check daily @ 01:00)');
 }
 
 module.exports = {

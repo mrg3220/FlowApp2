@@ -72,7 +72,7 @@ const getSchools = async (req, res, next) => {
       orderBy: { name: 'asc' },
     });
 
-    res.json(schools);
+    res.json({ data: schools });
   } catch (error) {
     next(error);
   }

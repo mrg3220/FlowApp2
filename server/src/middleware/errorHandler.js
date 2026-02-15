@@ -1,3 +1,5 @@
+const logger = require('../utils/logger');
+
 /**
  * ──────────────────────────────────────────────────────────
  * Global Error Handling Middleware
@@ -10,18 +12,27 @@
  *   - Prisma error codes are mapped to safe HTTP responses
  *   - 500 errors always return a generic message to prevent
  *     information leakage (DB structure, file paths, etc.)
- *   - Stack traces are logged server-side only in development
+ *   - Stack traces are logged server-side only via structured logging
  * ──────────────────────────────────────────────────────────
  */
-const errorHandler = (err, _req, res, _next) => {
-  // Log for server-side observability.
-  // In production, log only the message (not the stack) to avoid
-  // dumping sensitive data into log aggregators.
-  if (process.env.NODE_ENV === 'development') {
-    console.error('Error:', err.message);
-    console.error(err.stack);
+const errorHandler = (err, req, res, _next) => {
+  const isDev = process.env.NODE_ENV === 'development';
+  
+  // Log only 500s as errors, 4xx as warnings to reduce noise
+  const status = err.status || 500;
+  
+  if (status >= 500) {
+    logger.error(err.message, { 
+      stack: err.stack, 
+      code: err.code, 
+      path: req.path, 
+      method: req.method 
+    });
   } else {
-    console.error(`Error: ${err.message} [${err.code || err.name || 'unknown'}]`);
+    logger.warn(`Client Error (${status}): ${err.message}`, {
+      path: req.path,
+      method: req.method
+    });
   }
 
   // ─── Prisma-specific error mapping ─────────────────────
@@ -45,7 +56,6 @@ const errorHandler = (err, _req, res, _next) => {
   }
 
   // ─── Default: hide internal details from the client ────
-  const status = err.status || 500;
   res.status(status).json({
     error: status === 500 ? 'Internal server error' : err.message,
   });

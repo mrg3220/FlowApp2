@@ -23,7 +23,8 @@
     "jsonwebtoken": "^9.0.2",
     "node-cron": "^3.0.3",
     "qrcode": "^1.5.4",
-    "uuid": "^10.0.0"
+    "uuid": "^10.0.0",
+    "winston": "^3.19.0"
   },
   "prisma": {
     "seed": "node prisma/seed.js"

@@ -15,6 +15,7 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const config = require('./config');
 const errorHandler = require('./middleware/errorHandler');
+const logger = require('./utils/logger'); // EA Standard: Structured Logger
 
 // ─── Route imports ───────────────────────────────────────
 const authRoutes = require('./routes/auth');
@@ -129,6 +130,7 @@ const publicWriteLimiter = rateLimit({
 
 // ─── Health check (no auth, lightweight) ─────────────────
 app.get('/api/health', (_req, res) => {
+  logger.debug('Health check probe received');
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
@@ -190,9 +192,9 @@ const { startScheduler } = require('./services/autoInvoice');
 const { startNotificationScheduler } = require('./services/notificationService');
 
 const server = app.listen(config.port, () => {
-  console.log(`🥋 FlowApp API running on http://localhost:${config.port}`);
-  console.log(`   Environment: ${config.nodeEnv}`);
-  console.log(`   CORS origin: ${config.corsOrigin}`);
+  logger.info(`🥋 FlowApp API running on http://localhost:${config.port}`);
+  logger.info(`   Environment: ${config.nodeEnv}`);
+  logger.info(`   CORS origin: ${config.corsOrigin}`);
   startScheduler();
   startNotificationScheduler();
 });
@@ -201,15 +203,15 @@ const server = app.listen(config.port, () => {
 // Ensures in-flight requests complete before process exits.
 // Docker sends SIGTERM; Ctrl+C sends SIGINT.
 function gracefulShutdown(signal) {
-  console.log(`\n${signal} received — shutting down gracefully…`);
+  logger.info(`\n${signal} received — shutting down gracefully…`);
   server.close(async () => {
-    console.log('   HTTP server closed');
+    logger.info('   HTTP server closed');
     try { await require('./config/database').$disconnect(); } catch { /* ignore */ }
-    console.log('   Database disconnected');
+    logger.info('   Database disconnected');
     process.exit(0);
   });
   // Force exit after 10s if connections don't drain
-  setTimeout(() => { console.error('   Forced shutdown (timeout)'); process.exit(1); }, 10000);
+  setTimeout(() => { logger.error('   Forced shutdown (timeout)'); process.exit(1); }, 10000);
 }
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));

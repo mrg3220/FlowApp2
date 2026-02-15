@@ -1,9 +1,10 @@
 /**
  * Notification Service
  * Handles sending notifications via EMAIL, SMS, and IN_APP channels.
- * Uses placeholder transports (console log) — swap in SendGrid/Twilio later.
+ * Uses placeholder transports (mock) — swap in SendGrid/Twilio later.
  */
 const prisma = require('../config/database');
+const logger = require('../utils/logger'); // EA Standard: Structured logging
 
 // ─── Template variable replacer ──────────────────────────
 function interpolate(template, vars) {
@@ -13,16 +14,17 @@ function interpolate(template, vars) {
 // ─── Channel transports (placeholders) ───────────────────
 
 async function sendEmail(to, subject, body) {
-  console.log(`📧 EMAIL → ${to} | Subject: ${subject}`);
-  // TODO: integrate SendGrid / AWS SES
-  return true;
+  logger.info(`📧 [MOCK EMAIL] To: ${to} | Subject: ${subject}`);
+  // Mock success for testing/dev environments
+  return Promise.resolve(true); 
 }
 
 async function sendSMS(to, body) {
-  console.log(`📱 SMS → ${to} | ${body.substring(0, 60)}...`);
-  // TODO: integrate Twilio
-  return true;
+  logger.info(`📱 [MOCK SMS] To: ${to} | Body: ${body.substring(0, 60)}...`);
+  // Mock success for testing/dev environments
+  return Promise.resolve(true);
 }
+
 
 // ─── Core send function ──────────────────────────────────
 
@@ -88,7 +90,7 @@ async function sendNotification({ userId, schoolId, type, channel = 'IN_APP', va
 
     return notification;
   } catch (error) {
-    console.error(`Notification error (${type}/${channel} → ${userId}):`, error.message);
+    logger.error(`Notification error (${type}/${channel} → ${userId}): ${error.message}`);
     return null;
   }
 }
@@ -142,7 +144,7 @@ async function checkBirthdays() {
       vars: { body: '🎂 Happy Birthday! Your martial arts family wishes you a great day!' },
     });
   }
-  console.log(`🎂 Birthday check: ${users.length} users`);
+  logger.info(`🎂 Birthday check: ${users.length} users`);
 }
 
 /**
@@ -188,7 +190,7 @@ async function checkMissedClasses() {
       vars: { body: 'We miss you! It\'s been a while since your last class. Come back soon! 🥋' },
     });
   }
-  console.log(`📋 Missed-class check: ${students.length} students alerted`);
+  logger.info(`📋 Missed-class check: ${students.length} students alerted`);
 }
 
 /**
@@ -241,7 +243,7 @@ async function checkPaymentReminders() {
       metadata: { invoiceId: inv.id },
     });
   }
-  console.log(`💰 Payment reminders: ${invoices.length} invoices checked`);
+  logger.info(`💰 Payment reminders: ${invoices.length} invoices checked`);
 }
 
 /**
@@ -276,7 +278,7 @@ async function sendWelcomeEmails() {
       vars: { body: '👋 Welcome to FlowApp! Check out your dashboard to get started.' },
     });
   }
-  console.log(`👋 Welcome emails: ${newUsers.length} new users`);
+  logger.info(`👋 Welcome emails: ${newUsers.length} new users`);
 }
 
 module.exports = {
@@ -298,27 +300,27 @@ function startNotificationScheduler() {
 
   // Birthdays — daily at 8:00 AM
   cron.schedule('0 8 * * *', () => {
-    console.log('🎂 Running birthday check...');
-    checkBirthdays().catch(console.error);
+    logger.info('🎂 Running birthday check...');
+    checkBirthdays().catch(err => logger.error(`Birthday check error: ${err.message}`));
   });
 
   // Missed-class alerts — daily at 9:00 AM
   cron.schedule('0 9 * * *', () => {
-    console.log('🚫 Running missed-class check...');
-    checkMissedClasses().catch(console.error);
+    logger.info('🚫 Running missed-class check...');
+    checkMissedClasses().catch(err => logger.error(`Missed-class check error: ${err.message}`));
   });
 
   // Payment reminders — daily at 10:00 AM
   cron.schedule('0 10 * * *', () => {
-    console.log('💰 Running payment reminder check...');
-    checkPaymentReminders().catch(console.error);
+    logger.info('💰 Running payment reminder check...');
+    checkPaymentReminders().catch(err => logger.error(`Payment reminder check error: ${err.message}`));
   });
 
   // Welcome emails — every hour
   cron.schedule('0 * * * *', () => {
-    console.log('👋 Running welcome email check...');
-    sendWelcomeEmails().catch(console.error);
+    logger.info('👋 Running welcome email check...');
+    sendWelcomeEmails().catch(err => logger.error(`Welcome email check error: ${err.message}`));
   });
 
-  console.log('🔔 Notification scheduler started');
+  logger.info('🔔 Notification scheduler started');
 }
