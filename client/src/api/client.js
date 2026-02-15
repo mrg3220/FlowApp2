@@ -378,3 +378,13 @@ export const familyApi = {
   removeMember: (memberId) =>
     request(`/families/members/${memberId}`, { method: 'DELETE' }),
 };
+
+// ─── Student Portal ──────────────────────────────────────
+
+export const studentPortalApi = {
+  getDashboard: () => request('/student-portal/dashboard'),
+  getSchedule: (params) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return request(`/student-portal/schedule${query}`);
+  },
+};

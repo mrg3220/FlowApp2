@@ -16,6 +16,7 @@ import BillingPage from './pages/BillingPage';
 import PromotionsPage from './pages/PromotionsPage';
 import NotificationsPage from './pages/NotificationsPage';
 import FamiliesPage from './pages/FamiliesPage';
+import StudentPortalPage from './pages/StudentPortalPage';
 
 function AppLayout({ children }) {
   return (
@@ -118,6 +119,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <AppLayout><FamiliesPage /></AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/student-portal"
+        element={
+          <ProtectedRoute>
+            <AppLayout><StudentPortalPage /></AppLayout>
           </ProtectedRoute>
         }
       />

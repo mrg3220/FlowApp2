@@ -60,6 +60,9 @@ export default function Sidebar() {
         <NavLink to="/families" className={({ isActive }) => (isActive ? 'active' : '')}>
           👨‍👩‍👧‍👦 Families
         </NavLink>
+        <NavLink to="/student-portal" className={({ isActive }) => (isActive ? 'active' : '')}>
+          🎓 My Portal
+        </NavLink>
         <NavLink to="/profile" className={({ isActive }) => (isActive ? 'active' : '')}>
           👤 Profile
         </NavLink>
