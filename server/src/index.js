@@ -28,7 +28,12 @@ const retailRoutes = require('./routes/retail');
 const certificateRoutes = require('./routes/certificates');
 const trainingPlanRoutes = require('./routes/trainingPlans');
 const payrollRoutes = require('./routes/payroll');
-const competitionRoutes = require('./routes/competitions');
+const eventRoutes = require('./routes/events');
+const venueRoutes = require('./routes/venues');
+const certificationRoutes = require('./routes/certifications');
+const brandingRoutes = require('./routes/branding');
+const helpRoutes = require('./routes/help');
+const publicRoutes = require('./routes/public');
 const virtualRoutes = require('./routes/virtual');
 
 const app = express();
@@ -65,7 +70,12 @@ app.use('/api/retail', retailRoutes);
 app.use('/api/certificates', certificateRoutes);
 app.use('/api/training-plans', trainingPlanRoutes);
 app.use('/api/payroll', payrollRoutes);
-app.use('/api/competitions', competitionRoutes);
+app.use('/api/events', eventRoutes);
+app.use('/api/venues', venueRoutes);
+app.use('/api/certifications', certificationRoutes);
+app.use('/api/branding', brandingRoutes);
+app.use('/api/help', helpRoutes);
+app.use('/api/public', publicRoutes);
 app.use('/api/virtual', virtualRoutes);
 
 // ─── 404 handler ─────────────────────────────────────────

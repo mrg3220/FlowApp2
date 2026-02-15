@@ -509,21 +509,100 @@ export const payrollApi = {
   remove: (id) => request(`/payroll/${id}`, { method: 'DELETE' }),
 };
 
-// ─── Competitions ────────────────────────────────────────
-
-export const competitionApi = {
+// ─── Events ──────────────────────────────────────────────
+export const eventApi = {
   getAll: (params) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
-    return request(`/competitions${query}`);
+    return request(`/events${query}`);
   },
-  getById: (id) => request(`/competitions/${id}`),
-  create: (data) => request('/competitions', { method: 'POST', body: JSON.stringify(data) }),
-  update: (id, data) => request(`/competitions/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  remove: (id) => request(`/competitions/${id}`, { method: 'DELETE' }),
-  addEntry: (id, data) => request(`/competitions/${id}/entries`, { method: 'POST', body: JSON.stringify(data) }),
-  updateEntry: (compId, entryId, data) => request(`/competitions/${compId}/entries/${entryId}`, { method: 'PUT', body: JSON.stringify(data) }),
-  deleteEntry: (compId, entryId) => request(`/competitions/${compId}/entries/${entryId}`, { method: 'DELETE' }),
-  getStudentMedals: (studentId) => request(`/competitions/student/${studentId}/medals`),
+  getById: (id) => request(`/events/${id}`),
+  create: (data) => request('/events', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id, data) => request(`/events/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  remove: (id) => request(`/events/${id}`, { method: 'DELETE' }),
+  purchaseTicket: (eventId, data) => request(`/events/${eventId}/tickets`, { method: 'POST', body: JSON.stringify(data) }),
+  updateTicketStatus: (ticketId, status) => request(`/events/tickets/${ticketId}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+  register: (eventId, data) => request(`/events/${eventId}/register`, { method: 'POST', body: JSON.stringify(data || {}) }),
+  cancelRegistration: (regId) => request(`/events/registrations/${regId}`, { method: 'DELETE' }),
+  addTournamentEntry: (eventId, data) => request(`/events/${eventId}/tournament-entries`, { method: 'POST', body: JSON.stringify(data) }),
+  updateTournamentEntry: (entryId, data) => request(`/events/tournament-entries/${entryId}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteTournamentEntry: (entryId) => request(`/events/tournament-entries/${entryId}`, { method: 'DELETE' }),
+  getStudentMedals: (studentId) => request(`/events/student/${studentId}/medals`),
+};
+
+// ─── Venues ──────────────────────────────────────────────
+export const venueApi = {
+  getAll: (params) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return request(`/venues${query}`);
+  },
+  getById: (id) => request(`/venues/${id}`),
+  create: (data) => request('/venues', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id, data) => request(`/venues/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  remove: (id) => request(`/venues/${id}`, { method: 'DELETE' }),
+};
+
+// ─── Certifications / Title Applications ─────────────────
+export const certificationApi = {
+  getAll: (params) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return request(`/certifications${query}`);
+  },
+  getById: (id) => request(`/certifications/${id}`),
+  create: (data) => request('/certifications', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id, data) => request(`/certifications/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  submit: (id) => request(`/certifications/${id}/submit`, { method: 'POST' }),
+  withdraw: (id) => request(`/certifications/${id}/withdraw`, { method: 'POST' }),
+  review: (id, data) => request(`/certifications/${id}/review`, { method: 'POST', body: JSON.stringify(data) }),
+  markPaid: (id) => request(`/certifications/${id}/mark-paid`, { method: 'POST' }),
+};
+
+// ─── Branding ────────────────────────────────────────────
+export const brandingApi = {
+  getOrg: () => request('/branding/org'),
+  updateOrg: (data) => request('/branding/org', { method: 'PUT', body: JSON.stringify(data) }),
+  getSchool: (schoolId) => request(`/branding/school/${schoolId}`),
+  updateSchool: (schoolId, data) => request(`/branding/school/${schoolId}`, { method: 'PUT', body: JSON.stringify(data) }),
+};
+
+// ─── Help / AI Chat ──────────────────────────────────────
+export const helpApi = {
+  getArticles: (params) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return request(`/help/articles${query}`);
+  },
+  getArticle: (id) => request(`/help/articles/${id}`),
+  getCategories: () => request('/help/articles/categories'),
+  createArticle: (data) => request('/help/articles', { method: 'POST', body: JSON.stringify(data) }),
+  updateArticle: (id, data) => request(`/help/articles/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteArticle: (id) => request(`/help/articles/${id}`, { method: 'DELETE' }),
+  getOnboarding: () => request('/help/onboarding'),
+  completeStep: (stepKey) => request('/help/onboarding', { method: 'POST', body: JSON.stringify({ stepKey }) }),
+  chat: (message, history) => request('/help/chat', { method: 'POST', body: JSON.stringify({ message, conversationHistory: history }) }),
+};
+
+// ─── Public (no auth) ────────────────────────────────────
+
+async function publicRequest(endpoint, options = {}) {
+  const config = { headers: { 'Content-Type': 'application/json', ...options.headers }, ...options };
+  const response = await fetch(`${API_BASE}${endpoint}`, config);
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
+
+export const publicApi = {
+  getEvents: (params) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return publicRequest(`/public/events${query}`);
+  },
+  getEvent: (id) => publicRequest(`/public/events/${id}`),
+  purchaseTicket: (data) => publicRequest('/public/events/tickets', { method: 'POST', body: JSON.stringify(data) }),
+  getProducts: (params) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return publicRequest(`/public/shop${query}`);
+  },
+  createOrder: (data) => publicRequest('/public/shop/orders', { method: 'POST', body: JSON.stringify(data) }),
+  getSchools: () => publicRequest('/public/schools'),
 };
 
 // ─── Virtual / Online Classes ────────────────────────────

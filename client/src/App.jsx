@@ -2,6 +2,8 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import Sidebar from './components/Sidebar';
 import ProtectedRoute from './components/ProtectedRoute';
+import AIChat from './components/AIChat';
+import OnboardingWizard from './components/OnboardingWizard';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
@@ -25,14 +27,23 @@ import RetailPage from './pages/RetailPage';
 import CertificatesPage from './pages/CertificatesPage';
 import TrainingPlansPage from './pages/TrainingPlansPage';
 import PayrollPage from './pages/PayrollPage';
-import CompetitionsPage from './pages/CompetitionsPage';
 import VirtualClassesPage from './pages/VirtualClassesPage';
+import EventsPage from './pages/EventsPage';
+import CertificationsPage from './pages/CertificationsPage';
+import BrandingPage from './pages/BrandingPage';
+import HelpCenterPage from './pages/HelpCenterPage';
+import PublicEventsPage from './pages/PublicEventsPage';
+import PublicShopPage from './pages/PublicShopPage';
 
 function AppLayout({ children }) {
   return (
     <div className="app-layout">
       <Sidebar />
-      <main className="app-main">{children}</main>
+      <main className="app-main">
+        {children}
+        <OnboardingWizard />
+        <AIChat />
+      </main>
     </div>
   );
 }
@@ -46,10 +57,12 @@ export default function App() {
 
   return (
     <Routes>
-      {/* Public routes */}
+      {/* Public routes — no auth required */}
       <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <LoginPage />} />
       <Route path="/register" element={user ? <Navigate to="/dashboard" /> : <RegisterPage />} />
       <Route path="/kiosk" element={<KioskPage />} />
+      <Route path="/public/events" element={<PublicEventsPage />} />
+      <Route path="/public/shop" element={<PublicShopPage />} />
 
       {/* Protected routes */}
       <Route
@@ -87,7 +100,7 @@ export default function App() {
       <Route
         path="/checkin"
         element={
-          <ProtectedRoute roles={['SUPER_ADMIN', 'OWNER', 'INSTRUCTOR']}>
+          <ProtectedRoute roles={['SUPER_ADMIN', 'OWNER', 'INSTRUCTOR', 'SCHOOL_STAFF']}>
             <AppLayout><CheckInPage /></AppLayout>
           </ProtectedRoute>
         }
@@ -143,7 +156,7 @@ export default function App() {
       <Route
         path="/leads"
         element={
-          <ProtectedRoute roles={['SUPER_ADMIN', 'OWNER', 'INSTRUCTOR']}>
+          <ProtectedRoute roles={['SUPER_ADMIN', 'OWNER', 'INSTRUCTOR', 'SCHOOL_STAFF']}>
             <AppLayout><LeadsPage /></AppLayout>
           </ProtectedRoute>
         }
@@ -205,18 +218,42 @@ export default function App() {
         }
       />
       <Route
-        path="/competitions"
-        element={
-          <ProtectedRoute>
-            <AppLayout><CompetitionsPage /></AppLayout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
         path="/virtual"
         element={
           <ProtectedRoute>
             <AppLayout><VirtualClassesPage /></AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/events"
+        element={
+          <ProtectedRoute>
+            <AppLayout><EventsPage /></AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/certifications"
+        element={
+          <ProtectedRoute>
+            <AppLayout><CertificationsPage /></AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/branding"
+        element={
+          <ProtectedRoute roles={['SUPER_ADMIN', 'MARKETING', 'OWNER', 'SCHOOL_STAFF']}>
+            <AppLayout><BrandingPage /></AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/help"
+        element={
+          <ProtectedRoute>
+            <AppLayout><HelpCenterPage /></AppLayout>
           </ProtectedRoute>
         }
       />

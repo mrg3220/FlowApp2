@@ -53,10 +53,19 @@ export function AuthProvider({ children }) {
   const isOwner = user?.role === 'OWNER';
   const isInstructor = user?.role === 'INSTRUCTOR';
   const isStudent = user?.role === 'STUDENT';
-  const isStaff = isSuperAdmin || isOwner || isInstructor;
+  const isEventCoordinator = user?.role === 'EVENT_COORDINATOR';
+  const isMarketing = user?.role === 'MARKETING';
+  const isSchoolStaff = user?.role === 'SCHOOL_STAFF';
+  const isStaff = isSuperAdmin || isOwner || isInstructor || isSchoolStaff;
+  const isHQ = isSuperAdmin || isEventCoordinator || isMarketing;
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, isSuperAdmin, isOwner, isInstructor, isStudent, isStaff }}>
+    <AuthContext.Provider value={{
+      user, loading, login, register, logout,
+      isSuperAdmin, isOwner, isInstructor, isStudent,
+      isEventCoordinator, isMarketing, isSchoolStaff,
+      isStaff, isHQ,
+    }}>
       {children}
     </AuthContext.Provider>
   );

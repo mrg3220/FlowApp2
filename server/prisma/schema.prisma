@@ -17,6 +17,9 @@ enum Role {
   OWNER
   INSTRUCTOR
   STUDENT
+  EVENT_COORDINATOR
+  MARKETING
+  SCHOOL_STAFF
 }
 
 enum FamilyRole {
@@ -202,6 +205,49 @@ enum ContentType {
   LINK
 }
 
+// ─── Title / Certification ───────────────────────────────
+
+enum Title {
+  NONE
+  LOHAN_CANDIDATE
+  LOHAN_CERTIFIED
+  SIFU_ASSOCIATE
+  SIFU
+}
+
+enum ApplicationStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  DENIED
+  WITHDRAWN
+}
+
+// ─── Events System ───────────────────────────────────────
+
+enum EventType {
+  TOURNAMENT
+  SEMINAR
+  PARTY
+  CEREMONY
+  WORKSHOP
+  OTHER
+}
+
+enum EventScope {
+  HQ
+  SCHOOL
+}
+
+enum TicketStatus {
+  RESERVED
+  PAID
+  CANCELLED
+  REFUNDED
+  CHECKED_IN
+}
+
 // ─── Models ──────────────────────────────────────────────
 
 model User {
@@ -212,6 +258,7 @@ model User {
   lastName     String   @map("last_name")
   phone        String?
   role         Role     @default(STUDENT)
+  title        Title    @default(NONE)
   bio          String?
   beltRank     String?  @map("belt_rank")
   schoolId     String?  @map("school_id")   // Primary school affiliation (owner/instructor)
@@ -250,8 +297,16 @@ model User {
   // F15 Payroll
   payrollEntries     PayrollEntry[] @relation("InstructorPayroll")
   approvedPayroll    PayrollEntry[] @relation("PayrollApprover")
-  // F16 Competitions
-  competitionEntries CompetitionEntry[] @relation("CompetitorEntries")
+  // Events
+  createdEvents      Event[]        @relation("EventCreator")
+  eventTickets       EventTicket[]  @relation("UserTickets")
+  eventRegistrations EventRegistration[] @relation("UserEventRegs")
+  tournamentEntries  TournamentEntry[]   @relation("UserTournamentEntries")
+  // Certifications
+  certApplications       CertificationApplication[] @relation("UserCertApps")
+  reviewedApplications   CertificationApplication[] @relation("AppReviewer")
+  // Help
+  onboardingProgress     OnboardingProgress[]       @relation("UserOnboarding")
   // F17 Virtual
   videoViews         VideoView[]    @relation("UserVideoViews")
 
@@ -304,8 +359,11 @@ model School {
   trainingPlans      TrainingPlan[]   @relation("SchoolTrainingPlans")
   // F15 Payroll
   payrollEntries     PayrollEntry[]   @relation("SchoolPayroll")
-  // F16 Competitions
-  competitions       Competition[]    @relation("SchoolCompetitions")
+  // Events
+  events             Event[]          @relation("SchoolEvents")
+  venues             Venue[]          @relation("SchoolVenues")
+  // Branding
+  branding           SchoolBranding?  @relation("SchoolBranding")
   // F17 Virtual
   virtualContent     VirtualContent[] @relation("SchoolVirtualContent")
 
@@ -869,7 +927,7 @@ model Waiver {
 
 model Product {
   id          String   @id @default(uuid())
-  schoolId    String   @map("school_id")
+  schoolId    String?  @map("school_id")  // null = org-wide
   name        String
   description String?
   sku         String?
@@ -878,10 +936,11 @@ model Product {
   imageUrl    String?  @map("image_url")
   category    String?  // "Uniforms", "Gear", "Merchandise"
   isActive    Boolean  @default(true) @map("is_active")
+  isOrgWide   Boolean  @default(false) @map("is_org_wide")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  school     School      @relation("SchoolProducts", fields: [schoolId], references: [id])
+  school     School?     @relation("SchoolProducts", fields: [schoolId], references: [id])
   inventory  Inventory[]
   orderItems OrderItem[]
 
@@ -906,8 +965,8 @@ model Inventory {
 model Order {
   id           String      @id @default(uuid())
   orderNumber  String      @unique @map("order_number")
-  schoolId     String      @map("school_id")
-  customerId   String      @map("customer_id")
+  schoolId     String?     @map("school_id")
+  customerId   String?     @map("customer_id")
   status       OrderStatus @default(PENDING)
   subtotal     Float
   taxAmount    Float       @default(0) @map("tax_amount")
@@ -916,8 +975,12 @@ model Order {
   createdAt    DateTime    @default(now()) @map("created_at")
   updatedAt    DateTime    @updatedAt @map("updated_at")
 
-  school   School      @relation("SchoolOrders", fields: [schoolId], references: [id])
-  customer User        @relation("UserOrders", fields: [customerId], references: [id])
+  school   School?     @relation("SchoolOrders", fields: [schoolId], references: [id])
+  customer User?       @relation("UserOrders", fields: [customerId], references: [id])
+  // Guest checkout
+  guestName    String?  @map("guest_name")
+  guestEmail   String?  @map("guest_email")
+  guestPhone   String?  @map("guest_phone")
   items    OrderItem[]
 
   @@map("orders")
@@ -1058,40 +1121,209 @@ model PayrollEntry {
 }
 
 // ═══════════════════════════════════════════════════════════
-// F16 — Competition Results Tracking
+// EVENTS SYSTEM (replaces F16 Competitions)
 // ═══════════════════════════════════════════════════════════
 
-model Competition {
-  id        String   @id @default(uuid())
-  schoolId  String?  @map("school_id")  // null = open
-  name      String
-  location  String?
-  eventDate DateTime @map("event_date") @db.Date
-  notes     String?
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+model Venue {
+  id           String   @id @default(uuid())
+  name         String
+  address      String?
+  city         String?
+  state        String?
+  zipCode      String?  @map("zip_code")
+  capacity     Int?
+  isSchool     Boolean  @default(false) @map("is_school")
+  schoolId     String?  @map("school_id")
+  contactName  String?  @map("contact_name")
+  contactPhone String?  @map("contact_phone")
+  contactEmail String?  @map("contact_email")
+  notes        String?
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
-  school  School?            @relation("SchoolCompetitions", fields: [schoolId], references: [id])
-  entries CompetitionEntry[]
+  school School? @relation("SchoolVenues", fields: [schoolId], references: [id])
+  events Event[]
 
-  @@map("competitions")
+  @@map("venues")
 }
 
-model CompetitionEntry {
-  id            String    @id @default(uuid())
-  competitionId String    @map("competition_id")
-  studentId     String    @map("student_id")
-  division      String?   // "Youth Sparring", "Adult Forms"
-  weightClass   String?   @map("weight_class")
-  placement     Int?      // 1, 2, 3...
-  medal         MedalType @default(NONE)
-  notes         String?
-  createdAt     DateTime  @default(now()) @map("created_at")
+model Event {
+  id                   String     @id @default(uuid())
+  name                 String
+  description          String?
+  eventType            EventType  @map("event_type")
+  scope                EventScope @default(SCHOOL)
+  schoolId             String?    @map("school_id")      // null = HQ event
+  venueId              String?    @map("venue_id")
+  startDate            DateTime   @map("start_date")
+  endDate              DateTime?  @map("end_date")
+  isPublic             Boolean    @default(false) @map("is_public")
+  ticketPrice          Float?     @map("ticket_price")
+  maxCapacity          Int?       @map("max_capacity")
+  registrationDeadline DateTime?  @map("registration_deadline")
+  imageUrl             String?    @map("image_url")
+  createdById          String     @map("created_by_id")
+  createdAt            DateTime   @default(now()) @map("created_at")
+  updatedAt            DateTime   @updatedAt @map("updated_at")
 
-  competition Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
-  student     User        @relation("CompetitorEntries", fields: [studentId], references: [id])
+  school        School?             @relation("SchoolEvents", fields: [schoolId], references: [id])
+  venue         Venue?              @relation(fields: [venueId], references: [id])
+  createdBy     User                @relation("EventCreator", fields: [createdById], references: [id])
+  tickets       EventTicket[]
+  registrations EventRegistration[]
+  tournamentEntries TournamentEntry[]
 
-  @@map("competition_entries")
+  @@map("events")
+}
+
+model EventTicket {
+  id          String       @id @default(uuid())
+  eventId     String       @map("event_id")
+  userId      String?      @map("user_id")      // null for guest
+  guestName   String?      @map("guest_name")
+  guestEmail  String?      @map("guest_email")
+  guestPhone  String?      @map("guest_phone")
+  quantity    Int          @default(1)
+  unitPrice   Float        @map("unit_price")
+  totalPrice  Float        @map("total_price")
+  status      TicketStatus @default(RESERVED)
+  paymentRef  String?      @map("payment_ref")
+  purchasedAt DateTime?    @map("purchased_at")
+  checkedInAt DateTime?    @map("checked_in_at")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User? @relation("UserTickets", fields: [userId], references: [id])
+
+  @@map("event_tickets")
+}
+
+model EventRegistration {
+  id           String   @id @default(uuid())
+  eventId      String   @map("event_id")
+  userId       String   @map("user_id")
+  status       String   @default("REGISTERED") // REGISTERED, WAITLISTED, CANCELLED
+  notes        String?
+  registeredAt DateTime @default(now()) @map("registered_at")
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User  @relation("UserEventRegs", fields: [userId], references: [id])
+
+  @@unique([eventId, userId])
+  @@map("event_registrations")
+}
+
+model TournamentEntry {
+  id          String    @id @default(uuid())
+  eventId     String    @map("event_id")
+  userId      String    @map("user_id")
+  weightClass String?   @map("weight_class")
+  division    String?
+  medalType   MedalType @default(NONE) @map("medal_type")
+  placement   Int?
+  notes       String?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User  @relation("UserTournamentEntries", fields: [userId], references: [id])
+
+  @@unique([eventId, userId])
+  @@map("tournament_entries")
+}
+
+// ═══════════════════════════════════════════════════════════
+// CERTIFICATION / APPLICATION PROCESS
+// ═══════════════════════════════════════════════════════════
+
+model CertificationApplication {
+  id              String            @id @default(uuid())
+  userId          String            @map("user_id")
+  targetTitle     Title             @map("target_title")
+  status          ApplicationStatus @default(DRAFT)
+  applicationData Json?             @map("application_data")   // flexible form data
+  feeAmount       Float?            @map("fee_amount")
+  feePaid         Boolean           @default(false) @map("fee_paid")
+  submittedAt     DateTime?         @map("submitted_at")
+  reviewedAt      DateTime?         @map("reviewed_at")
+  reviewedById    String?           @map("reviewed_by_id")
+  reviewNotes     String?           @map("review_notes")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  user       User  @relation("UserCertApps", fields: [userId], references: [id])
+  reviewedBy User? @relation("AppReviewer", fields: [reviewedById], references: [id])
+
+  @@map("certification_applications")
+}
+
+// ═══════════════════════════════════════════════════════════
+// BRANDING
+// ═══════════════════════════════════════════════════════════
+
+model OrgBranding {
+  id              String   @id @default(uuid())
+  logoUrl         String?  @map("logo_url")
+  logoLightUrl    String?  @map("logo_light_url")
+  primaryColor    String   @default("#1a1a2e") @map("primary_color")
+  secondaryColor  String   @default("#e94560") @map("secondary_color")
+  accentColor     String   @default("#0f3460") @map("accent_color")
+  fontFamily      String   @default("Inter, sans-serif") @map("font_family")
+  tagline         String?
+  guidelines      Json?    // Full branding guide document
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("org_branding")
+}
+
+model SchoolBranding {
+  id              String   @id @default(uuid())
+  schoolId        String   @unique @map("school_id")
+  logoUrl         String?  @map("logo_url")
+  bannerUrl       String?  @map("banner_url")
+  primaryColor    String?  @map("primary_color")
+  secondaryColor  String?  @map("secondary_color")
+  description     String?
+  welcomeMessage  String?  @map("welcome_message")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  school School @relation("SchoolBranding", fields: [schoolId], references: [id])
+
+  @@map("school_branding")
+}
+
+// ═══════════════════════════════════════════════════════════
+// HELP SYSTEM
+// ═══════════════════════════════════════════════════════════
+
+model HelpArticle {
+  id          String   @id @default(uuid())
+  title       String
+  content     String
+  category    String   // "Getting Started", "Schools", "Events", etc.
+  roles       String[] // Which roles can see this article
+  tags        String[]
+  sortOrder   Int      @default(0) @map("sort_order")
+  isPublished Boolean  @default(true) @map("is_published")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("help_articles")
+}
+
+model OnboardingProgress {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  stepKey     String   @map("step_key")  // "welcome", "first_class", "first_checkin"
+  completedAt DateTime @default(now()) @map("completed_at")
+
+  user User @relation("UserOnboarding", fields: [userId], references: [id])
+
+  @@unique([userId, stepKey])
+  @@map("onboarding_progress")
 }
 
 // ═══════════════════════════════════════════════════════════
