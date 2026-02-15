@@ -34,6 +34,8 @@ import BrandingPage from './pages/BrandingPage';
 import HelpCenterPage from './pages/HelpCenterPage';
 import PublicEventsPage from './pages/PublicEventsPage';
 import PublicShopPage from './pages/PublicShopPage';
+import ITAdminPage from './pages/ITAdminPage';
+import SREDashboardPage from './pages/SREDashboardPage';
 
 function AppLayout({ children }) {
   return (
@@ -262,6 +264,22 @@ export default function App() {
         element={
           <ProtectedRoute>
             <AppLayout><ProfilePage /></AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/it-admin"
+        element={
+          <ProtectedRoute roles={['SUPER_ADMIN', 'IT_ADMIN']}>
+            <AppLayout><ITAdminPage /></AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/sre"
+        element={
+          <ProtectedRoute roles={['SUPER_ADMIN', 'IT_ADMIN']}>
+            <AppLayout><SREDashboardPage /></AppLayout>
           </ProtectedRoute>
         }
       />

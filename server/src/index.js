@@ -46,6 +46,9 @@ const brandingRoutes = require('./routes/branding');
 const helpRoutes = require('./routes/help');
 const publicRoutes = require('./routes/public');
 const virtualRoutes = require('./routes/virtual');
+const adminRoutes = require('./routes/admin');
+const sreRoutes = require('./routes/sre');
+const { requestMetricsMiddleware } = require('./middleware/requestMetrics');
 
 const app = express();
 
@@ -81,6 +84,12 @@ app.use(cors(corsOptions));
  * 1MB is generous for a JSON API; adjust if file uploads are added.
  */
 app.use(express.json({ limit: '1mb' }));
+
+/**
+ * Request metrics collector — tracks throughput, latency,
+ * error rates per endpoint for the SRE dashboard.
+ */
+app.use(requestMetricsMiddleware);
 
 /**
  * Global rate limiter — prevents abuse across all endpoints.
@@ -147,6 +156,10 @@ app.use('/api/certifications', certificationRoutes);
 app.use('/api/branding', brandingRoutes);
 app.use('/api/help', helpRoutes);
 app.use('/api/virtual', virtualRoutes);
+
+// IT Admin & SRE routes — restricted to SUPER_ADMIN and IT_ADMIN
+app.use('/api/admin', adminRoutes);
+app.use('/api/sre', sreRoutes);
 
 // Public routes — no auth required, but still rate-limited globally
 app.use('/api/public', publicRoutes);

@@ -61,12 +61,18 @@ const authenticate = async (req, res, next) => {
         role: true,
         title: true,
         schoolId: true,
+        isActive: true,
       },
     });
 
     if (!user) {
       // Generic message — don't reveal whether the user existed
       return res.status(401).json({ error: 'Invalid or expired token' });
+    }
+
+    // Block disabled accounts from accessing the API
+    if (user.isActive === false) {
+      return res.status(403).json({ error: 'Account has been disabled. Contact an administrator.' });
     }
 
     req.user = user;

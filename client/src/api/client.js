@@ -620,3 +620,48 @@ export const virtualApi = {
   recordView: (id, data) => request(`/virtual/${id}/view`, { method: 'POST', body: JSON.stringify(data) }),
   getMyViews: () => request('/virtual/my-views'),
 };
+
+// ─── IT Admin ────────────────────────────────────────────
+
+export const adminApi = {
+  getStats: () => request('/admin/stats'),
+
+  // User management
+  getUsers: (params) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return request(`/admin/users${query}`);
+  },
+  getUser: (id) => request(`/admin/users/${id}`),
+  createUser: (data) => request('/admin/users/create', { method: 'POST', body: JSON.stringify(data) }),
+  changeRole: (id, role) => request(`/admin/users/${id}/role`, { method: 'PUT', body: JSON.stringify({ role }) }),
+  disableUser: (id, reason) => request(`/admin/users/${id}/disable`, { method: 'PUT', body: JSON.stringify({ reason }) }),
+  enableUser: (id) => request(`/admin/users/${id}/enable`, { method: 'PUT' }),
+  resetPassword: (id, newPassword) => request(`/admin/users/${id}/reset-password`, { method: 'POST', body: JSON.stringify({ newPassword }) }),
+
+  // Audit logs
+  getAuditLogs: (params) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return request(`/admin/audit-logs${query}`);
+  },
+
+  // System settings
+  getSettings: (params) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return request(`/admin/settings${query}`);
+  },
+  upsertSetting: (key, data) => request(`/admin/settings/${key}`, { method: 'PUT', body: JSON.stringify(data) }),
+};
+
+// ─── SRE / Observability ─────────────────────────────────
+
+export const sreApi = {
+  getDashboard: () => request('/sre/dashboard'),
+  getHealth: () => request('/sre/health'),
+  getDatabase: () => request('/sre/database'),
+  getRequests: () => request('/sre/requests'),
+  getErrors: (params) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return request(`/sre/errors${query}`);
+  },
+  getRuntime: () => request('/sre/runtime'),
+};

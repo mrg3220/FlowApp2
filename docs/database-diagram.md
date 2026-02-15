@@ -1,8 +1,8 @@
 # FlowApp2 Database Schema
 
-> **Last updated:** 2026-02-15 — Penultimate UX Overhaul  
+> **Last updated:** 2026-02-15 — IT Admin & SRE Panel  
 > **Engine:** PostgreSQL 16 · **ORM:** Prisma 5.22  
-> **Models:** 52 · **Enums:** 28
+> **Models:** 54 · **Enums:** 29
 
 ---
 
@@ -23,13 +23,14 @@ erDiagram
         string first_name
         string last_name
         string phone
-        enum role "SUPER_ADMIN | OWNER | INSTRUCTOR | STUDENT | EVENT_COORDINATOR | MARKETING | SCHOOL_STAFF"
+        enum role "SUPER_ADMIN | OWNER | INSTRUCTOR | STUDENT | EVENT_COORDINATOR | MARKETING | SCHOOL_STAFF | IT_ADMIN"
         enum title "NONE | LOHAN_CANDIDATE | LOHAN_CERTIFIED | SIFU_ASSOCIATE | SIFU"
         string bio
         string belt_rank
         uuid school_id FK
-        date date_of_birth
-    }
+        date date_of_birth        boolean is_active
+        datetime disabled_at
+        string disabled_by    }
 
     SCHOOLS {
         uuid id PK
@@ -466,7 +467,7 @@ erDiagram
 
 | Enum | Values |
 |------|--------|
-| **Role** | SUPER_ADMIN, OWNER, INSTRUCTOR, STUDENT, EVENT_COORDINATOR, MARKETING, SCHOOL_STAFF |
+| **Role** | SUPER_ADMIN, OWNER, INSTRUCTOR, STUDENT, EVENT_COORDINATOR, MARKETING, SCHOOL_STAFF, IT_ADMIN |
 | **Title** | NONE, LOHAN_CANDIDATE, LOHAN_CERTIFIED, SIFU_ASSOCIATE, SIFU |
 | **FamilyRole** | PRIMARY, SECONDARY, CHILD |
 | **SkillLevel** | BEGINNER, INTERMEDIATE, ADVANCED, ALL_LEVELS |
@@ -494,6 +495,44 @@ erDiagram
 | **EventScope** | HQ, SCHOOL |
 | **TicketStatus** | RESERVED, PAID, CANCELLED, REFUNDED, CHECKED_IN |
 | **ApplicationStatus** | DRAFT, SUBMITTED, UNDER_REVIEW, APPROVED, DENIED, WITHDRAWN |
+| **AuditAction** | USER_CREATED, USER_UPDATED, USER_DISABLED, USER_ENABLED, USER_ROLE_CHANGED, USER_PASSWORD_RESET, SESSION_REVOKED, SETTING_CHANGED, LOGIN_SUCCESS, LOGIN_FAILED, SYSTEM_CONFIG_CHANGED |
+
+---
+
+### Administration — Audit Logs, System Settings
+
+```mermaid
+erDiagram
+    AUDIT_LOGS {
+        uuid id PK
+        uuid performer_id FK
+        enum action "AuditAction"
+        string target_type
+        string target_id
+        json details
+        string ip_address
+        string user_agent
+        datetime created_at
+    }
+
+    SYSTEM_SETTINGS {
+        uuid id PK
+        string key UK
+        string value
+        string category
+        string label
+        datetime updated_at
+        string updated_by
+    }
+
+    USERS ||--o{ AUDIT_LOGS : "performs"
+```
+
+#### AUDIT_LOGS
+Immutable record of every administrative action. Indexed on `performerId`, `action`, `(targetType, targetId)`, and `createdAt` for efficient querying.
+
+#### SYSTEM_SETTINGS
+Key-value store for runtime configuration. Categorized for UI grouping. `updatedBy` tracks who last changed each setting.
 
 ---
 

@@ -23,6 +23,23 @@ async function main() {
   });
   console.log(`  ✅ Super Admin: ${superAdmin.email}`);
 
+  // ─── IT Admin ─────────────────────────────────────
+  const itAdminPassword = await bcrypt.hash('admin123', 12);
+  const itAdmin = await prisma.user.upsert({
+    where: { email: 'itadmin@flowapp.com' },
+    update: {},
+    create: {
+      email: 'itadmin@flowapp.com',
+      passwordHash: itAdminPassword,
+      firstName: 'IT',
+      lastName: 'Admin',
+      phone: '555-0002',
+      role: 'IT_ADMIN',
+      bio: 'IT administrator for FlowApp platform.',
+    },
+  });
+  console.log(`  ✅ IT Admin: ${itAdmin.email}`);
+
   // ─── Owners ───────────────────────────────────────
   const ownerPassword = await bcrypt.hash('owner123', 12);
   const owner1 = await prisma.user.upsert({

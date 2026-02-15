@@ -24,7 +24,7 @@ function SLink({ to, icon, label }) {
 }
 
 export default function Sidebar() {
-  const { user, logout, isSuperAdmin, isOwner, isInstructor, isStudent, isEventCoordinator, isMarketing, isSchoolStaff, isStaff, isHQ } = useAuth();
+  const { user, logout, isSuperAdmin, isOwner, isInstructor, isStudent, isEventCoordinator, isMarketing, isSchoolStaff, isStaff, isHQ, isITAdmin, isAdmin } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -121,6 +121,14 @@ export default function Sidebar() {
             <SLink to="/shop" icon="🛍️" label="Shop" />
             <SLink to="/waivers" icon="📝" label="Waivers" />
             <SLink to="/families" icon="👨‍👩‍👧‍👦" label="Family" />
+          </SidebarSection>
+        )}
+
+        {/* IT Admin / SRE */}
+        {(isSuperAdmin || isITAdmin) && (
+          <SidebarSection title="Administration">
+            <SLink to="/it-admin" icon="🔧" label="IT Admin" />
+            <SLink to="/sre" icon="📡" label="SRE Dashboard" />
           </SidebarSection>
         )}
 

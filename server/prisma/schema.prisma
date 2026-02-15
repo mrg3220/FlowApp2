@@ -20,6 +20,7 @@ enum Role {
   EVENT_COORDINATOR
   MARKETING
   SCHOOL_STAFF
+  IT_ADMIN
 }
 
 enum FamilyRole {
@@ -309,6 +310,11 @@ model User {
   onboardingProgress     OnboardingProgress[]       @relation("UserOnboarding")
   // F17 Virtual
   videoViews         VideoView[]    @relation("UserVideoViews")
+  // IT Admin
+  isActive           Boolean        @default(true) @map("is_active")
+  disabledAt         DateTime?      @map("disabled_at")
+  disabledBy         String?        @map("disabled_by")
+  auditLogs          AuditLog[]     @relation("AuditPerformer")
 
   @@map("users")
 }
@@ -1368,4 +1374,55 @@ model VideoView {
 
   @@index([contentId, userId])
   @@map("video_views")
+}
+
+// ═══════════════════════════════════════════════════════════
+// IT Administration & SRE
+// ═══════════════════════════════════════════════════════════
+
+enum AuditAction {
+  USER_CREATED
+  USER_UPDATED
+  USER_DISABLED
+  USER_ENABLED
+  USER_ROLE_CHANGED
+  USER_PASSWORD_RESET
+  SESSION_REVOKED
+  SETTING_CHANGED
+  LOGIN_SUCCESS
+  LOGIN_FAILED
+  SYSTEM_CONFIG_CHANGED
+}
+
+model AuditLog {
+  id          String      @id @default(uuid())
+  performerId String?     @map("performer_id")
+  action      AuditAction
+  targetType  String?     @map("target_type")   // "User", "School", "Setting"
+  targetId    String?     @map("target_id")
+  details     Json?       // Structured change details
+  ipAddress   String?     @map("ip_address")
+  userAgent   String?     @map("user_agent")
+  createdAt   DateTime    @default(now()) @map("created_at")
+
+  performer   User?       @relation("AuditPerformer", fields: [performerId], references: [id])
+
+  @@index([performerId])
+  @@index([action])
+  @@index([targetType, targetId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model SystemSetting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String
+  category  String   @default("general")
+  label     String?  // Human-readable label
+  updatedAt DateTime @updatedAt @map("updated_at")
+  updatedBy String?  @map("updated_by")
+
+  @@index([category])
+  @@map("system_settings")
 }
