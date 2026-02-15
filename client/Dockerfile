@@ -2,15 +2,22 @@
 # FlowApp2 Client Dockerfile
 # ──────────────────────────────────────────────────────────
 # Multi-stage build: Node compiles React → Nginx serves static files.
-# Security: Nginx runs as non-root user 'nginx' (UID 101, default).
+# Security measures:
+#   - Nginx's default non-root user (UID 101)
+#   - Read-only root FS compatible (writable dirs via tmpfs)
+#   - No build tools or source code in final image
+#   - Security headers configured in nginx.conf
+#   - Minimal Alpine Nginx base
 # ──────────────────────────────────────────────────────────
 
 # ─── Build stage ──────────────────────────────────────────
+# Installs npm dependencies and builds the Vite production bundle.
+# None of this carries over to the final image.
 FROM node:20-alpine AS build
 
 WORKDIR /app
 
-# Install deps first for layer caching
+# Install deps first for layer caching (source changes don't bust this)
 COPY package.json package-lock.json* ./
 RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi \
     && npm cache clean --force
@@ -20,22 +27,27 @@ COPY . .
 RUN npm run build
 
 # ─── Production stage — Nginx ────────────────────────────
+# Serves only the compiled static assets. No Node.js runtime,
+# no source code, no npm — minimal attack surface.
 FROM nginx:1.27-alpine
 
 # Remove default nginx config and HTML to reduce attack surface
-RUN rm -rf /usr/share/nginx/html/* /etc/nginx/conf.d/default.conf
+RUN rm -rf /usr/share/nginx/html/* /etc/nginx/conf.d/default.conf \
+    # Remove package cache
+    && rm -rf /var/cache/apk/*
 
-# Copy the compiled React SPA
+# Copy the compiled React SPA (only static assets)
 COPY --from=build /app/dist /usr/share/nginx/html
 
 # Copy custom Nginx config with security headers and API proxy
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Expose the frontend port (documentation only)
+# Expose the frontend port (documentation only — doesn't open it)
 EXPOSE 3000
 
 # Health check: verify Nginx is serving the SPA
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
   CMD wget -qO- http://localhost:3000/ || exit 1
 
+# Run Nginx in foreground (non-daemonized for Docker)
 CMD ["nginx", "-g", "daemon off;"]

@@ -35,34 +35,57 @@ const getSuperAdminMetrics = async (req, res, next) => {
       where: { checkedInAt: { gte: last7Days } },
     });
 
-    // Per-school check-in counts (last 30 days)
-    const schoolMetrics = await Promise.all(
-      schools.map(async (school) => {
-        const checkIns = await prisma.checkIn.count({
-          where: {
-            checkedInAt: { gte: last30Days },
-            session: { class: { schoolId: school.id } },
-          },
+    // N+1 FIX: Batch all per-school check-in counts into 2 groupBy queries
+    // instead of 2×N individual count() queries
+    const [checkIns30dBySchool, checkIns7dBySchool] = await Promise.all([
+      prisma.checkIn.groupBy({
+        by: ['sessionId'],
+        where: { checkedInAt: { gte: last30Days } },
+        _count: true,
+      }).then(async (raw) => {
+        // Map session -> school via a single lookup
+        const sessionIds = raw.map((r) => r.sessionId);
+        const sessions = await prisma.classSession.findMany({
+          where: { id: { in: sessionIds } },
+          select: { id: true, class: { select: { schoolId: true } } },
         });
-
-        const checkIns7d = await prisma.checkIn.count({
-          where: {
-            checkedInAt: { gte: last7Days },
-            session: { class: { schoolId: school.id } },
-          },
+        const sessionSchoolMap = Object.fromEntries(sessions.map((s) => [s.id, s.class.schoolId]));
+        const counts = {};
+        for (const r of raw) {
+          const sid = sessionSchoolMap[r.sessionId];
+          if (sid) counts[sid] = (counts[sid] || 0) + r._count;
+        }
+        return counts;
+      }),
+      prisma.checkIn.groupBy({
+        by: ['sessionId'],
+        where: { checkedInAt: { gte: last7Days } },
+        _count: true,
+      }).then(async (raw) => {
+        const sessionIds = raw.map((r) => r.sessionId);
+        const sessions = await prisma.classSession.findMany({
+          where: { id: { in: sessionIds } },
+          select: { id: true, class: { select: { schoolId: true } } },
         });
+        const sessionSchoolMap = Object.fromEntries(sessions.map((s) => [s.id, s.class.schoolId]));
+        const counts = {};
+        for (const r of raw) {
+          const sid = sessionSchoolMap[r.sessionId];
+          if (sid) counts[sid] = (counts[sid] || 0) + r._count;
+        }
+        return counts;
+      }),
+    ]);
 
-        return {
-          id: school.id,
-          name: school.name,
-          owner: `${school.owner.firstName} ${school.owner.lastName}`,
-          activeClasses: school._count.classes,
-          activeStudents: school._count.enrollments,
-          checkIns30d: checkIns,
-          checkIns7d: checkIns7d,
-        };
-      })
-    );
+    const schoolMetrics = schools.map((school) => ({
+      id: school.id,
+      name: school.name,
+      owner: `${school.owner.firstName} ${school.owner.lastName}`,
+      activeClasses: school._count.classes,
+      activeStudents: school._count.enrollments,
+      checkIns30d: checkIns30dBySchool[school.id] || 0,
+      checkIns7d: checkIns7dBySchool[school.id] || 0,
+    }));
 
     // Global totals
     const totalStudents = await prisma.enrollment.count({ where: { status: 'ACTIVE' } });
@@ -168,18 +191,18 @@ const getSchoolMetrics = async (req, res, next) => {
       take: 10,
     });
 
-    const topStudentDetails = await Promise.all(
-      topStudents.map(async (ts) => {
-        const student = await prisma.user.findUnique({
-          where: { id: ts.studentId },
-          select: { firstName: true, lastName: true, email: true },
-        });
-        return {
-          ...student,
-          checkIns: ts._count.id,
-        };
-      })
-    );
+    // N+1 FIX: Batch-fetch top student details in one query
+    const topStudentIds = topStudents.map((ts) => ts.studentId);
+    const topStudentUsers = await prisma.user.findMany({
+      where: { id: { in: topStudentIds } },
+      select: { id: true, firstName: true, lastName: true, email: true },
+    });
+    const studentMap = Object.fromEntries(topStudentUsers.map((u) => [u.id, u]));
+
+    const topStudentDetails = topStudents.map((ts) => ({
+      ...(studentMap[ts.studentId] || { firstName: 'Unknown', lastName: '', email: '' }),
+      checkIns: ts._count.id,
+    }));
 
     // Recent new enrollments
     const newEnrollments = await prisma.enrollment.count({

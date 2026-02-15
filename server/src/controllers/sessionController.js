@@ -1,5 +1,8 @@
 const { v4: uuidv4 } = require('uuid');
 const prisma = require('../config/database');
+const { parsePagination, paginatedResponse } = require('../utils/pagination');
+
+const VALID_SESSION_STATUSES = ['SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'];
 
 /**
  * POST /api/sessions
@@ -44,6 +47,7 @@ const createSession = async (req, res, next) => {
 const getSessions = async (req, res, next) => {
   try {
     const { classId, status, from, to } = req.query;
+    const { skip, take, page, limit } = parsePagination(req.query);
 
     const where = {};
     if (classId) where.classId = classId;
@@ -54,18 +58,23 @@ const getSessions = async (req, res, next) => {
       if (to) where.sessionDate.lte = new Date(to);
     }
 
-    const sessions = await prisma.classSession.findMany({
-      where,
-      include: {
-        class: {
-          select: { id: true, name: true, discipline: true, capacity: true, school: { select: { id: true, name: true } }, instructor: { select: { id: true, firstName: true, lastName: true } } },
+    const [sessions, total] = await Promise.all([
+      prisma.classSession.findMany({
+        where,
+        include: {
+          class: {
+            select: { id: true, name: true, discipline: true, capacity: true, school: { select: { id: true, name: true } }, instructor: { select: { id: true, firstName: true, lastName: true } } },
+          },
+          _count: { select: { checkIns: true } },
         },
-        _count: { select: { checkIns: true } },
-      },
-      orderBy: [{ sessionDate: 'desc' }, { startTime: 'desc' }],
-    });
+        orderBy: [{ sessionDate: 'desc' }, { startTime: 'desc' }],
+        skip,
+        take,
+      }),
+      prisma.classSession.count({ where }),
+    ]);
 
-    res.json(sessions);
+    res.json(paginatedResponse(sessions, total, page, limit));
   } catch (error) {
     next(error);
   }
@@ -113,6 +122,11 @@ const getSessionById = async (req, res, next) => {
 const updateSessionStatus = async (req, res, next) => {
   try {
     const { status } = req.body;
+
+    // Validate status against whitelist
+    if (!VALID_SESSION_STATUSES.includes(status)) {
+      return res.status(400).json({ error: `Invalid status. Must be one of: ${VALID_SESSION_STATUSES.join(', ')}` });
+    }
 
     const session = await prisma.classSession.update({
       where: { id: req.params.id },

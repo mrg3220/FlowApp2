@@ -6,12 +6,21 @@
 #   server  — Express API (port 3001, internal + host)
 #   client  — React SPA served by Nginx (port 3000, public)
 #
+# Network topology (defence-in-depth):
+#   ┌─────────┐   backend    ┌────────┐   frontend   ┌────────┐
+#   │   db    │◄────────────►│ server │◄────────────►│ client │
+#   └─────────┘  (internal)  └────────┘              └────────┘
+#   DB is isolated — unreachable from client or host.
+#
 # Security notes:
 #   - DB is on an internal-only network (not exposed to host)
 #   - Secrets are sourced from .env file (never hardcoded)
 #   - Containers use non-root users (defined in Dockerfiles)
 #   - Resource limits prevent runaway consumption
 #   - Healthchecks enable automatic restart on failure
+#   - Read-only root filesystems where feasible
+#   - tmpfs mounts for writable directories (no persistent writes)
+#   - Security-opt: no-new-privileges prevents privilege escalation
 #
 # Usage:
 #   cp .env.example .env   # Fill in real secrets
@@ -42,6 +51,9 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+    # Security: prevent privilege escalation inside the container
+    security_opt:
+      - no-new-privileges:true
     deploy:
       resources:
         limits:
@@ -76,6 +88,14 @@ services:
     # Prisma schema push on startup, then start the server
     command: >
       sh -c "npx prisma db push --skip-generate && node src/index.js"
+    # Security: prevent privilege escalation inside the container
+    security_opt:
+      - no-new-privileges:true
+    # Writable tmpfs for Node.js temp files; root FS stays read-only
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=64m
+      - /app/.prisma:size=32m
     deploy:
       resources:
         limits:
@@ -95,6 +115,15 @@ services:
       - server
     networks:
       - frontend
+    # Security: prevent privilege escalation inside the container
+    security_opt:
+      - no-new-privileges:true
+    # Nginx needs to write to specific directories for its runtime
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx:size=32m
+      - /var/run:size=1m
+      - /tmp:noexec,nosuid,size=16m
     deploy:
       resources:
         limits:

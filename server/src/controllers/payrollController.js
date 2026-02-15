@@ -1,9 +1,16 @@
 const prisma = require('../config/database');
+const { isSuperRole } = require('../utils/authorization');
+const { parsePagination, paginatedResponse } = require('../utils/pagination');
 
 const getPayrollEntries = async (req, res, next) => {
   try {
     const { schoolId } = req.params;
+    if (!isSuperRole(req.user) && req.user.schoolId !== schoolId) {
+      return res.status(403).json({ error: 'Insufficient permissions' });
+    }
+
     const { instructorId, status, startDate, endDate } = req.query;
+    const { skip, take, page, limit } = parsePagination(req.query);
     const where = { schoolId };
     if (instructorId) where.instructorId = instructorId;
     if (status) where.status = status;
@@ -13,16 +20,21 @@ const getPayrollEntries = async (req, res, next) => {
       if (endDate) where.date.lte = new Date(endDate);
     }
 
-    const entries = await prisma.payrollEntry.findMany({
-      where,
-      include: {
-        instructor: { select: { id: true, firstName: true, lastName: true } },
-        session: { select: { sessionDate: true, startTime: true, endTime: true, class: { select: { name: true } } } },
-        approvedBy: { select: { firstName: true, lastName: true } },
-      },
-      orderBy: { date: 'desc' },
-    });
-    res.json(entries);
+    const [entries, total] = await Promise.all([
+      prisma.payrollEntry.findMany({
+        where,
+        include: {
+          instructor: { select: { id: true, firstName: true, lastName: true } },
+          session: { select: { sessionDate: true, startTime: true, endTime: true, class: { select: { name: true } } } },
+          approvedBy: { select: { firstName: true, lastName: true } },
+        },
+        orderBy: { date: 'desc' },
+        skip,
+        take,
+      }),
+      prisma.payrollEntry.count({ where }),
+    ]);
+    res.json(paginatedResponse(entries, total, page, limit));
   } catch (error) { next(error); }
 };
 

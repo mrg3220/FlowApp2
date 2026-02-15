@@ -1,4 +1,6 @@
 const prisma = require('../config/database');
+const { isSuperRole } = require('../utils/authorization');
+const { parsePagination, paginatedResponse } = require('../utils/pagination');
 
 /**
  * POST /api/enrollments
@@ -104,6 +106,23 @@ const transferStudent = async (req, res, next) => {
  */
 const deactivateEnrollment = async (req, res, next) => {
   try {
+    // IDOR check: verify enrollment belongs to user's scope
+    const existing = await prisma.enrollment.findUnique({
+      where: { id: req.params.id },
+      include: { school: true },
+    });
+    if (!existing) return res.status(404).json({ error: 'Enrollment not found' });
+
+    if (!isSuperRole(req.user)) {
+      if (req.user.role === 'OWNER') {
+        if (existing.school.ownerId !== req.user.id) {
+          return res.status(403).json({ error: 'Insufficient permissions' });
+        }
+      } else if (req.user.schoolId !== existing.schoolId) {
+        return res.status(403).json({ error: 'Insufficient permissions' });
+      }
+    }
+
     const enrollment = await prisma.enrollment.update({
       where: { id: req.params.id },
       data: { status: 'INACTIVE', leftAt: new Date() },
@@ -126,6 +145,7 @@ const deactivateEnrollment = async (req, res, next) => {
 const getEnrollments = async (req, res, next) => {
   try {
     const { schoolId, studentId, status } = req.query;
+    const { skip, take, page, limit } = parsePagination(req.query);
 
     const where = {};
     if (schoolId) where.schoolId = schoolId;
@@ -140,22 +160,27 @@ const getEnrollments = async (req, res, next) => {
       });
       where.schoolId = { in: ownerSchools.map((s) => s.id) };
     } else if (req.user.role === 'INSTRUCTOR') {
-      if (!req.user.schoolId) return res.json([]);
+      if (!req.user.schoolId) return res.json(paginatedResponse([], 0, page, limit));
       where.schoolId = req.user.schoolId;
     } else if (req.user.role === 'STUDENT') {
       where.studentId = req.user.id;
     }
 
-    const enrollments = await prisma.enrollment.findMany({
-      where,
-      include: {
-        student: { select: { id: true, firstName: true, lastName: true, email: true } },
-        school: { select: { id: true, name: true } },
-      },
-      orderBy: { enrolledAt: 'desc' },
-    });
+    const [enrollments, total] = await Promise.all([
+      prisma.enrollment.findMany({
+        where,
+        include: {
+          student: { select: { id: true, firstName: true, lastName: true, email: true } },
+          school: { select: { id: true, name: true } },
+        },
+        orderBy: { enrolledAt: 'desc' },
+        skip,
+        take,
+      }),
+      prisma.enrollment.count({ where }),
+    ]);
 
-    res.json(enrollments);
+    res.json(paginatedResponse(enrollments, total, page, limit));
   } catch (error) {
     next(error);
   }

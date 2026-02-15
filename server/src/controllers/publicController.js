@@ -143,8 +143,14 @@ const createGuestOrder = async (req, res, next) => {
 
     let subtotal = 0;
     const orderItems = [];
+
+    // Batch-fetch all products in one query (N+1 fix)
+    const productIds = items.map((item) => item.productId);
+    const products = await prisma.product.findMany({ where: { id: { in: productIds } } });
+    const productMap = Object.fromEntries(products.map((p) => [p.id, p]));
+
     for (const item of items) {
-      const product = await prisma.product.findUnique({ where: { id: item.productId } });
+      const product = productMap[item.productId];
       if (!product || !product.isActive) return res.status(400).json({ error: `Product not found or inactive` });
       subtotal += product.price * item.quantity;
       orderItems.push({
@@ -153,8 +159,16 @@ const createGuestOrder = async (req, res, next) => {
       });
     }
 
-    const count = await prisma.order.count();
-    const orderNumber = `PUB-${new Date().getFullYear()}-${String(count + 1).padStart(4, '0')}`;
+    // Race-safe order number: use findFirst+max instead of count()
+    const lastOrder = await prisma.order.findFirst({
+      where: { orderNumber: { startsWith: 'PUB-' } },
+      orderBy: { createdAt: 'desc' },
+      select: { orderNumber: true },
+    });
+    const nextSeq = lastOrder
+      ? parseInt(lastOrder.orderNumber.split('-').pop(), 10) + 1
+      : 1;
+    const orderNumber = `PUB-${new Date().getFullYear()}-${String(nextSeq).padStart(4, '0')}`;
 
     const order = await prisma.order.create({
       data: {

@@ -2,13 +2,21 @@
 # FlowApp2 Server Dockerfile
 # ──────────────────────────────────────────────────────────
 # Multi-stage build: build dependencies → slim production image.
-# Security: runs as non-root user 'appuser' (UID 1001).
+# Security measures:
+#   - Non-root user 'appuser' (UID 1001)
+#   - Minimal Alpine base with only required packages
+#   - Read-only root FS compatible (writable dirs via tmpfs)
+#   - No dev dependencies or build tools in final image
+#   - COPY --chown for least-privilege file ownership
 # ──────────────────────────────────────────────────────────
 
 # ─── Build stage ──────────────────────────────────────────
+# Installs all dependencies (including dev) and generates
+# the Prisma client. None of the build tools carry over
+# to the production stage.
 FROM node:20-alpine AS build
 
-# OpenSSL is required by Prisma Client for database communication
+# OpenSSL is required by Prisma Client for TLS database connections
 RUN apk add --no-cache openssl
 
 WORKDIR /app
@@ -26,10 +34,13 @@ RUN npx prisma generate
 COPY . .
 
 # ─── Production stage ────────────────────────────────────
+# Minimal image: only Node runtime, OpenSSL, and our app code.
 FROM node:20-alpine
 
-# OpenSSL required by Prisma at runtime
-RUN apk add --no-cache openssl
+# OpenSSL required by Prisma at runtime for TLS
+RUN apk add --no-cache openssl \
+    # Remove package cache to reduce image size
+    && rm -rf /var/cache/apk/*
 
 WORKDIR /app
 
@@ -40,6 +51,7 @@ RUN addgroup -g 1001 -S appgroup && \
 
 # Copy only production artifacts from the build stage.
 # No dev dependencies, no source maps, no build tools.
+# --chown ensures the non-root user owns all files.
 COPY --from=build --chown=appuser:appgroup /app/node_modules ./node_modules
 COPY --from=build --chown=appuser:appgroup /app/prisma ./prisma
 COPY --from=build --chown=appuser:appgroup /app/src ./src
@@ -53,8 +65,9 @@ EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
   CMD wget -qO- http://localhost:3001/api/health || exit 1
 
-# Security: drop to non-root user before running the application
+# Security: drop to non-root user before running the application.
+# All subsequent commands (including CMD) run as appuser.
 USER appuser
 
-# Start the Express server
+# Start the Express server directly (no shell wrapper = PID 1 signal handling)
 CMD ["node", "src/index.js"]

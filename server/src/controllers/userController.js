@@ -1,4 +1,5 @@
 const prisma = require('../config/database');
+const { parsePagination, paginatedResponse } = require('../utils/pagination');
 
 /**
  * GET /api/users
@@ -7,6 +8,7 @@ const prisma = require('../config/database');
 const getUsers = async (req, res, next) => {
   try {
     const { role, search } = req.query;
+    const { skip, take, page, limit } = parsePagination(req.query);
 
     const where = {};
     if (role) where.role = role;
@@ -18,21 +20,26 @@ const getUsers = async (req, res, next) => {
       ];
     }
 
-    const users = await prisma.user.findMany({
-      where,
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        phone: true,
-        role: true,
-        createdAt: true,
-      },
-      orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
-    });
+    const [users, total] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          phone: true,
+          role: true,
+          createdAt: true,
+        },
+        orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+        skip,
+        take,
+      }),
+      prisma.user.count({ where }),
+    ]);
 
-    res.json(users);
+    res.json(paginatedResponse(users, total, page, limit));
   } catch (error) {
     next(error);
   }

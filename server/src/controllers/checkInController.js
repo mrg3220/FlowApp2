@@ -179,6 +179,20 @@ const checkInByKiosk = async (req, res, next) => {
  */
 const removeCheckIn = async (req, res, next) => {
   try {
+    // IDOR check: verify check-in exists and belongs to a session the user can manage
+    const checkInRecord = await prisma.checkIn.findUnique({
+      where: { id: req.params.id },
+      include: { session: { include: { class: true } } },
+    });
+    if (!checkInRecord) return res.status(404).json({ error: 'Check-in not found' });
+
+    // Only allow removal by staff at the same school or super roles
+    const schoolId = checkInRecord.session?.class?.schoolId;
+    if (schoolId && req.user.schoolId !== schoolId &&
+        req.user.role !== 'SUPER_ADMIN' && req.user.role !== 'IT_ADMIN') {
+      return res.status(403).json({ error: 'Insufficient permissions' });
+    }
+
     await prisma.checkIn.delete({ where: { id: req.params.id } });
     res.json({ message: 'Check-in removed' });
   } catch (error) {

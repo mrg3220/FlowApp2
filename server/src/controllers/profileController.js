@@ -113,6 +113,21 @@ const updateProfile = async (req, res, next) => {
       if (!currentPassword) {
         return res.status(400).json({ error: 'Current password is required to set a new password' });
       }
+
+      // Password complexity check (defence in depth)
+      if (newPassword.length < 8) {
+        return res.status(400).json({ error: 'Password must be at least 8 characters' });
+      }
+      if (!/[A-Z]/.test(newPassword)) {
+        return res.status(400).json({ error: 'Password must contain at least one uppercase letter' });
+      }
+      if (!/[a-z]/.test(newPassword)) {
+        return res.status(400).json({ error: 'Password must contain at least one lowercase letter' });
+      }
+      if (!/[0-9]/.test(newPassword)) {
+        return res.status(400).json({ error: 'Password must contain at least one digit' });
+      }
+
       const user = await prisma.user.findUnique({ where: { id: req.user.id } });
       const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
       if (!isValid) {

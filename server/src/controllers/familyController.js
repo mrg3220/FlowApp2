@@ -1,4 +1,6 @@
 const prisma = require('../config/database');
+const { isSuperRole } = require('../utils/authorization');
+const { parsePagination, paginatedResponse } = require('../utils/pagination');
 
 // ─── List families for a school ──────────────────────────
 
@@ -6,6 +8,12 @@ const getFamilies = async (req, res, next) => {
   try {
     const { schoolId } = req.params;
     const { search } = req.query;
+    const { skip, take, page, limit } = parsePagination(req.query);
+
+    // School ownership check
+    if (!isSuperRole(req.user) && req.user.schoolId !== schoolId) {
+      return res.status(403).json({ error: 'Insufficient permissions' });
+    }
 
     const where = { schoolId, isActive: true };
     if (search) {
@@ -15,22 +23,27 @@ const getFamilies = async (req, res, next) => {
       ];
     }
 
-    const families = await prisma.family.findMany({
-      where,
-      include: {
-        members: {
-          include: {
-            user: {
-              select: { id: true, firstName: true, lastName: true, email: true, phone: true, role: true },
+    const [families, total] = await Promise.all([
+      prisma.family.findMany({
+        where,
+        include: {
+          members: {
+            include: {
+              user: {
+                select: { id: true, firstName: true, lastName: true, email: true, phone: true, role: true },
+              },
             },
+            orderBy: { familyRole: 'asc' },
           },
-          orderBy: { familyRole: 'asc' },
         },
-      },
-      orderBy: { name: 'asc' },
-    });
+        orderBy: { name: 'asc' },
+        skip,
+        take,
+      }),
+      prisma.family.count({ where }),
+    ]);
 
-    res.json(families);
+    res.json(paginatedResponse(families, total, page, limit));
   } catch (error) { next(error); }
 };
 

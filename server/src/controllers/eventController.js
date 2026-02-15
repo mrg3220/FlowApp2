@@ -1,10 +1,56 @@
+/**
+ * ──────────────────────────────────────────────────────────
+ * Event Controller
+ * ──────────────────────────────────────────────────────────
+ * Manages events, tickets, registrations, and tournament entries.
+ *
+ * Security:
+ *   - Explicit field whitelisting on create/update (no mass assignment)
+ *   - School ownership enforced (IDOR prevention)
+ *   - Ticket status validated against whitelist
+ *   - Paginated list endpoints
+ *   - Capacity checks on ticket purchase
+ * ──────────────────────────────────────────────────────────
+ */
 const prisma = require('../config/database');
+const { isSuperRole } = require('../utils/authorization');
+const { parsePagination, paginatedResponse } = require('../utils/pagination');
+
+// ─── Field whitelists ────────────────────────────────────
+const EVENT_FIELDS = [
+  'name', 'description', 'eventType', 'scope', 'isPublic',
+  'startDate', 'endDate', 'registrationDeadline',
+  'ticketPrice', 'maxCapacity', 'imageUrl', 'schoolId', 'venueId',
+];
+
+const VALID_TICKET_STATUSES = ['RESERVED', 'PAID', 'CHECKED_IN', 'CANCELLED', 'REFUNDED'];
+
+/** Parse event-specific fields with type coercion */
+function pickEventFields(body) {
+  const data = {};
+  for (const key of EVENT_FIELDS) {
+    if (body[key] === undefined) continue;
+    if (['startDate', 'endDate', 'registrationDeadline'].includes(key)) {
+      data[key] = new Date(body[key]);
+    } else if (key === 'ticketPrice') {
+      data[key] = parseFloat(body[key]);
+    } else if (key === 'maxCapacity') {
+      data[key] = parseInt(body[key], 10);
+    } else {
+      data[key] = body[key];
+    }
+  }
+  return data;
+}
 
 // ─── Events CRUD ─────────────────────────────────────────
 
+/** @route GET /api/events — Paginated event list */
 const getEvents = async (req, res, next) => {
   try {
     const { schoolId, scope, eventType, isPublic, upcoming } = req.query;
+    const { skip, take, page, limit } = parsePagination(req.query);
+
     const where = {};
     if (schoolId) where.schoolId = schoolId;
     if (scope) where.scope = scope;
@@ -12,20 +58,32 @@ const getEvents = async (req, res, next) => {
     if (isPublic !== undefined) where.isPublic = isPublic === 'true';
     if (upcoming === 'true') where.startDate = { gte: new Date() };
 
-    const events = await prisma.event.findMany({
-      where,
-      include: {
-        school: { select: { id: true, name: true } },
-        venue: { select: { id: true, name: true, city: true, state: true } },
-        createdBy: { select: { id: true, firstName: true, lastName: true } },
-        _count: { select: { tickets: true, registrations: true, tournamentEntries: true } },
-      },
-      orderBy: { startDate: 'asc' },
-    });
-    res.json(events);
+    // Non-super users can only see their school's events
+    if (!isSuperRole(req.user) && !schoolId) {
+      where.schoolId = req.user.schoolId;
+    }
+
+    const [events, total] = await Promise.all([
+      prisma.event.findMany({
+        where,
+        include: {
+          school: { select: { id: true, name: true } },
+          venue: { select: { id: true, name: true, city: true, state: true } },
+          createdBy: { select: { id: true, firstName: true, lastName: true } },
+          _count: { select: { tickets: true, registrations: true, tournamentEntries: true } },
+        },
+        orderBy: { startDate: 'asc' },
+        skip,
+        take,
+      }),
+      prisma.event.count({ where }),
+    ]);
+
+    res.json(paginatedResponse(events, total, page, limit));
   } catch (error) { next(error); }
 };
 
+/** @route GET /api/events/:id */
 const getEvent = async (req, res, next) => {
   try {
     const event = await prisma.event.findUnique({
@@ -49,46 +107,66 @@ const getEvent = async (req, res, next) => {
       },
     });
     if (!event) return res.status(404).json({ error: 'Event not found' });
+
+    // IDOR: non-super users must belong to the event's school
+    if (!isSuperRole(req.user) && req.user.schoolId !== event.schoolId) {
+      return res.status(403).json({ error: 'Insufficient permissions' });
+    }
+
     res.json(event);
   } catch (error) { next(error); }
 };
 
+/**
+ * Create event. Field whitelist prevents mass assignment.
+ * @route POST /api/events
+ */
 const createEvent = async (req, res, next) => {
   try {
-    const data = { ...req.body, createdById: req.user.id };
-    if (data.startDate) data.startDate = new Date(data.startDate);
-    if (data.endDate) data.endDate = new Date(data.endDate);
-    if (data.registrationDeadline) data.registrationDeadline = new Date(data.registrationDeadline);
-    if (data.ticketPrice) data.ticketPrice = parseFloat(data.ticketPrice);
-    if (data.maxCapacity) data.maxCapacity = parseInt(data.maxCapacity);
+    const data = pickEventFields(req.body);
+    data.createdById = req.user.id;
+
+    // IDOR: non-super users can only create events for their own school
+    if (!isSuperRole(req.user) && data.schoolId && data.schoolId !== req.user.schoolId) {
+      return res.status(403).json({ error: 'Cannot create events for another school' });
+    }
+    if (!data.schoolId) data.schoolId = req.user.schoolId;
 
     const event = await prisma.event.create({
       data,
-      include: {
-        school: { select: { name: true } },
-        venue: { select: { name: true } },
-      },
+      include: { school: { select: { name: true } }, venue: { select: { name: true } } },
     });
     res.status(201).json(event);
   } catch (error) { next(error); }
 };
 
+/**
+ * Update event. Ownership check + field whitelist.
+ * @route PUT /api/events/:id
+ */
 const updateEvent = async (req, res, next) => {
   try {
-    const data = { ...req.body };
-    if (data.startDate) data.startDate = new Date(data.startDate);
-    if (data.endDate) data.endDate = new Date(data.endDate);
-    if (data.registrationDeadline) data.registrationDeadline = new Date(data.registrationDeadline);
-    if (data.ticketPrice !== undefined) data.ticketPrice = parseFloat(data.ticketPrice);
-    if (data.maxCapacity !== undefined) data.maxCapacity = parseInt(data.maxCapacity);
+    const existing = await prisma.event.findUnique({ where: { id: req.params.id } });
+    if (!existing) return res.status(404).json({ error: 'Event not found' });
+    if (!isSuperRole(req.user) && req.user.schoolId !== existing.schoolId) {
+      return res.status(403).json({ error: 'Insufficient permissions' });
+    }
 
+    const data = pickEventFields(req.body);
     const event = await prisma.event.update({ where: { id: req.params.id }, data });
     res.json(event);
   } catch (error) { next(error); }
 };
 
+/** @route DELETE /api/events/:id — Ownership check */
 const deleteEvent = async (req, res, next) => {
   try {
+    const existing = await prisma.event.findUnique({ where: { id: req.params.id } });
+    if (!existing) return res.status(404).json({ error: 'Event not found' });
+    if (!isSuperRole(req.user) && req.user.schoolId !== existing.schoolId) {
+      return res.status(403).json({ error: 'Insufficient permissions' });
+    }
+
     await prisma.event.delete({ where: { id: req.params.id } });
     res.json({ message: 'Event deleted' });
   } catch (error) { next(error); }
@@ -96,16 +174,16 @@ const deleteEvent = async (req, res, next) => {
 
 // ─── Tickets ─────────────────────────────────────────────
 
+/** @route POST /api/events/:eventId/tickets — Capacity-checked ticket purchase */
 const purchaseTicket = async (req, res, next) => {
   try {
     const { eventId } = req.params;
     const { quantity, guestName, guestEmail, guestPhone } = req.body;
-    const qty = quantity || 1;
+    const qty = Math.min(Math.max(parseInt(quantity, 10) || 1, 1), 20);
 
     const event = await prisma.event.findUnique({ where: { id: eventId } });
     if (!event) return res.status(404).json({ error: 'Event not found' });
 
-    // Check capacity
     if (event.maxCapacity) {
       const sold = await prisma.eventTicket.aggregate({
         where: { eventId, status: { in: ['RESERVED', 'PAID', 'CHECKED_IN'] } },
@@ -136,14 +214,23 @@ const purchaseTicket = async (req, res, next) => {
   } catch (error) { next(error); }
 };
 
+/**
+ * Update ticket status. Validates status against whitelist.
+ * @route PUT /api/events/tickets/:ticketId/status
+ */
 const updateTicketStatus = async (req, res, next) => {
   try {
+    const { status } = req.body;
+    if (!VALID_TICKET_STATUSES.includes(status)) {
+      return res.status(400).json({ error: `Invalid status. Must be one of: ${VALID_TICKET_STATUSES.join(', ')}` });
+    }
+
     const ticket = await prisma.eventTicket.update({
       where: { id: req.params.ticketId },
       data: {
-        status: req.body.status,
-        ...(req.body.status === 'PAID' && { purchasedAt: new Date() }),
-        ...(req.body.status === 'CHECKED_IN' && { checkedInAt: new Date() }),
+        status,
+        ...(status === 'PAID' && { purchasedAt: new Date() }),
+        ...(status === 'CHECKED_IN' && { checkedInAt: new Date() }),
       },
     });
     res.json(ticket);
@@ -152,6 +239,7 @@ const updateTicketStatus = async (req, res, next) => {
 
 // ─── Registrations ───────────────────────────────────────
 
+/** @route POST /api/events/:eventId/register */
 const registerForEvent = async (req, res, next) => {
   try {
     const { eventId } = req.params;
@@ -175,6 +263,7 @@ const registerForEvent = async (req, res, next) => {
   }
 };
 
+/** @route DELETE /api/events/registrations/:regId */
 const cancelRegistration = async (req, res, next) => {
   try {
     await prisma.eventRegistration.delete({ where: { id: req.params.regId } });
@@ -184,10 +273,15 @@ const cancelRegistration = async (req, res, next) => {
 
 // ─── Tournament Entries ──────────────────────────────────
 
+/**
+ * Add tournament entry. Field whitelist prevents mass assignment.
+ * @route POST /api/events/:eventId/tournament-entries
+ */
 const addTournamentEntry = async (req, res, next) => {
   try {
+    const { userId, division, weightClass, beltRank } = req.body;
     const entry = await prisma.tournamentEntry.create({
-      data: { eventId: req.params.eventId, ...req.body },
+      data: { eventId: req.params.eventId, userId, division, weightClass, beltRank },
       include: { user: { select: { firstName: true, lastName: true } } },
     });
     res.status(201).json(entry);
@@ -197,16 +291,22 @@ const addTournamentEntry = async (req, res, next) => {
   }
 };
 
+/**
+ * Update tournament entry. Field whitelist.
+ * @route PUT /api/events/tournament-entries/:entryId
+ */
 const updateTournamentEntry = async (req, res, next) => {
   try {
+    const { division, weightClass, placement, medalType, notes } = req.body;
     const entry = await prisma.tournamentEntry.update({
       where: { id: req.params.entryId },
-      data: req.body,
+      data: { division, weightClass, placement, medalType, notes },
     });
     res.json(entry);
   } catch (error) { next(error); }
 };
 
+/** @route DELETE /api/events/tournament-entries/:entryId */
 const deleteTournamentEntry = async (req, res, next) => {
   try {
     await prisma.tournamentEntry.delete({ where: { id: req.params.entryId } });
@@ -216,6 +316,7 @@ const deleteTournamentEntry = async (req, res, next) => {
 
 // ─── Student medal stats ─────────────────────────────────
 
+/** @route GET /api/events/students/:studentId/medals */
 const getStudentMedalStats = async (req, res, next) => {
   try {
     const { studentId } = req.params;

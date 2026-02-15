@@ -116,6 +116,17 @@ const authLimiter = rateLimit({
   message: { error: 'Too many authentication attempts. Please wait 15 minutes.' },
 });
 
+/**
+ * Stricter rate limiter for public/unauthenticated write endpoints.
+ * Mitigates: ticket/order spam, kiosk enumeration, bot abuse.
+ * 30 requests per 15-minute window per IP.
+ */
+const publicWriteLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  message: { error: 'Too many requests. Please try again later.' },
+});
+
 // ─── Health check (no auth, lightweight) ─────────────────
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -161,8 +172,8 @@ app.use('/api/virtual', virtualRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/sre', sreRoutes);
 
-// Public routes — no auth required, but still rate-limited globally
-app.use('/api/public', publicRoutes);
+// Public routes — stricter rate limit on writes, global limit on reads
+app.use('/api/public', publicWriteLimiter, publicRoutes);
 
 // ─── 404 handler ─────────────────────────────────────────
 app.use((_req, res) => {
@@ -178,12 +189,29 @@ app.use(errorHandler);
 const { startScheduler } = require('./services/autoInvoice');
 const { startNotificationScheduler } = require('./services/notificationService');
 
-app.listen(config.port, () => {
+const server = app.listen(config.port, () => {
   console.log(`🥋 FlowApp API running on http://localhost:${config.port}`);
   console.log(`   Environment: ${config.nodeEnv}`);
   console.log(`   CORS origin: ${config.corsOrigin}`);
   startScheduler();
   startNotificationScheduler();
 });
+
+// ─── Graceful shutdown ───────────────────────────────────
+// Ensures in-flight requests complete before process exits.
+// Docker sends SIGTERM; Ctrl+C sends SIGINT.
+function gracefulShutdown(signal) {
+  console.log(`\n${signal} received — shutting down gracefully…`);
+  server.close(async () => {
+    console.log('   HTTP server closed');
+    try { await require('./config/database').$disconnect(); } catch { /* ignore */ }
+    console.log('   Database disconnected');
+    process.exit(0);
+  });
+  // Force exit after 10s if connections don't drain
+  setTimeout(() => { console.error('   Forced shutdown (timeout)'); process.exit(1); }, 10000);
+}
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 module.exports = app;

@@ -1,4 +1,6 @@
 const prisma = require('../config/database');
+const { isSuperRole } = require('../utils/authorization');
+const { parsePagination, paginatedResponse } = require('../utils/pagination');
 
 /**
  * POST /api/classes
@@ -91,18 +93,25 @@ const getClasses = async (req, res, next) => {
     }
     // SUPER_ADMIN and STUDENT see all (students can browse)
 
-    const classes = await prisma.class.findMany({
-      where,
-      include: {
-        instructor: { select: { id: true, firstName: true, lastName: true } },
-        school: { select: { id: true, name: true } },
-        schedules: true,
-        _count: { select: { sessions: true } },
-      },
-      orderBy: { name: 'asc' },
-    });
+    const { skip, take, page, limit } = parsePagination(req.query);
 
-    res.json(classes);
+    const [classes, total] = await Promise.all([
+      prisma.class.findMany({
+        where,
+        include: {
+          instructor: { select: { id: true, firstName: true, lastName: true } },
+          school: { select: { id: true, name: true } },
+          schedules: true,
+          _count: { select: { sessions: true } },
+        },
+        orderBy: { name: 'asc' },
+        skip,
+        take,
+      }),
+      prisma.class.count({ where }),
+    ]);
+
+    res.json(paginatedResponse(classes, total, page, limit));
   } catch (error) {
     next(error);
   }
@@ -144,6 +153,13 @@ const getClassById = async (req, res, next) => {
  */
 const updateClass = async (req, res, next) => {
   try {
+    // IDOR check: verify class belongs to user's school
+    const existing = await prisma.class.findUnique({ where: { id: req.params.id } });
+    if (!existing) return res.status(404).json({ error: 'Class not found' });
+    if (!isSuperRole(req.user) && req.user.schoolId !== existing.schoolId && req.user.role !== 'OWNER') {
+      return res.status(403).json({ error: 'Insufficient permissions' });
+    }
+
     const { name, discipline, skillLevel, capacity, description, instructorId, isActive } = req.body;
 
     const updated = await prisma.class.update({
@@ -176,6 +192,13 @@ const updateClass = async (req, res, next) => {
  */
 const deleteClass = async (req, res, next) => {
   try {
+    // IDOR check
+    const existing = await prisma.class.findUnique({ where: { id: req.params.id } });
+    if (!existing) return res.status(404).json({ error: 'Class not found' });
+    if (!isSuperRole(req.user) && req.user.schoolId !== existing.schoolId && req.user.role !== 'OWNER') {
+      return res.status(403).json({ error: 'Insufficient permissions' });
+    }
+
     await prisma.class.update({
       where: { id: req.params.id },
       data: { isActive: false },

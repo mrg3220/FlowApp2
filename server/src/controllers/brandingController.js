@@ -1,66 +1,93 @@
+/**
+ * ──────────────────────────────────────────────────────────
+ * Branding Controller
+ * ──────────────────────────────────────────────────────────
+ * Manages organisation-level and school-level branding settings.
+ *
+ * Security:
+ *   - Explicit field whitelisting (no mass assignment)
+ *   - Org branding: SUPER_ADMIN / IT_ADMIN only
+ *   - School branding: school ownership enforced
+ * ──────────────────────────────────────────────────────────
+ */
 const prisma = require('../config/database');
+const { isSuperRole } = require('../utils/authorization');
 
-// ─── Org Branding (SUPER_ADMIN / MARKETING) ──────────────
+// ─── Allowed-field whitelist ─────────────────────────────
+const BRANDING_FIELDS = ['logoUrl', 'primaryColor', 'secondaryColor', 'fontFamily', 'customCss'];
 
+/** Pick only whitelisted keys from an object. */
+function pickBrandingFields(body) {
+  const data = {};
+  for (const key of BRANDING_FIELDS) {
+    if (body[key] !== undefined) data[key] = body[key];
+  }
+  return data;
+}
+
+// ─── Organisation Branding ───────────────────────────────
+
+/** @route GET /api/branding/org */
 const getOrgBranding = async (req, res, next) => {
   try {
-    let branding = await prisma.orgBranding.findFirst();
-    if (!branding) {
-      // Return defaults
-      branding = {
-        id: null,
-        logoUrl: null,
-        logoLightUrl: null,
-        primaryColor: '#1a1a2e',
-        secondaryColor: '#e94560',
-        accentColor: '#0f3460',
-        fontFamily: 'Inter, sans-serif',
-        tagline: null,
-        guidelines: null,
-      };
-    }
-    res.json(branding);
+    const branding = await prisma.orgBranding.findFirst();
+    res.json(branding || {});
   } catch (error) { next(error); }
 };
 
+/**
+ * Upsert organisation branding. Super roles only. Field whitelist.
+ * @route PUT /api/branding/org
+ * @security SUPER_ADMIN, IT_ADMIN
+ */
 const upsertOrgBranding = async (req, res, next) => {
   try {
-    const existing = await prisma.orgBranding.findFirst();
-    let branding;
-    if (existing) {
-      branding = await prisma.orgBranding.update({ where: { id: existing.id }, data: req.body });
-    } else {
-      branding = await prisma.orgBranding.create({ data: req.body });
+    if (!isSuperRole(req.user)) {
+      return res.status(403).json({ error: 'Insufficient permissions' });
     }
+
+    const data = pickBrandingFields(req.body);
+    const existing = await prisma.orgBranding.findFirst();
+
+    const branding = existing
+      ? await prisma.orgBranding.update({ where: { id: existing.id }, data })
+      : await prisma.orgBranding.create({ data });
+
     res.json(branding);
   } catch (error) { next(error); }
 };
 
-// ─── School Branding (OWNER / SCHOOL_STAFF) ──────────────
+// ─── School Branding ─────────────────────────────────────
 
+/** @route GET /api/branding/school/:schoolId */
 const getSchoolBranding = async (req, res, next) => {
   try {
     const { schoolId } = req.params;
-    let branding = await prisma.schoolBranding.findUnique({ where: { schoolId } });
-    if (!branding) {
-      branding = {
-        id: null, schoolId,
-        logoUrl: null, bannerUrl: null,
-        primaryColor: null, secondaryColor: null,
-        description: null, welcomeMessage: null,
-      };
+    if (!isSuperRole(req.user) && req.user.schoolId !== schoolId) {
+      return res.status(403).json({ error: 'Insufficient permissions' });
     }
-    res.json(branding);
+
+    const branding = await prisma.schoolBranding.findUnique({ where: { schoolId } });
+    res.json(branding || {});
   } catch (error) { next(error); }
 };
 
+/**
+ * Upsert school branding. Ownership enforced. Field whitelist.
+ * @route PUT /api/branding/school/:schoolId
+ */
 const upsertSchoolBranding = async (req, res, next) => {
   try {
     const { schoolId } = req.params;
+    if (!isSuperRole(req.user) && req.user.schoolId !== schoolId) {
+      return res.status(403).json({ error: 'Insufficient permissions' });
+    }
+
+    const data = pickBrandingFields(req.body);
     const branding = await prisma.schoolBranding.upsert({
       where: { schoolId },
-      update: req.body,
-      create: { schoolId, ...req.body },
+      update: data,
+      create: { schoolId, ...data },
     });
     res.json(branding);
   } catch (error) { next(error); }
