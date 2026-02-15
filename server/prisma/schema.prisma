@@ -55,6 +55,43 @@ enum EnrollmentStatus {
   TRANSFERRED
 }
 
+enum PaymentGateway {
+  STRIPE
+  SQUARE
+  MANUAL
+}
+
+enum BillingCycle {
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  SEMI_ANNUAL
+  ANNUAL
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  PAST_DUE
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CARD
+  CASH
+  CHECK
+  BANK_TRANSFER
+  GATEWAY
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAUSED
+  CANCELLED
+}
+
 // ─── Models ──────────────────────────────────────────────
 
 model User {
@@ -78,6 +115,10 @@ model User {
   enrollments       Enrollment[] @relation("StudentEnrollments")
   checkIns          CheckIn[]    @relation("StudentCheckIns")
   adminCheckIns     CheckIn[]    @relation("AdminCheckIns")
+  invoices          Invoice[]    @relation("StudentInvoices")
+  payments          Payment[]    @relation("StudentPayments")
+  recordedPayments  Payment[]    @relation("RecordedByPayments")
+  subscriptions     Subscription[] @relation("StudentSubscriptions")
 
   @@map("users")
 }
@@ -101,6 +142,10 @@ model School {
   staff       User[]       @relation("SchoolStaff")
   classes     Class[]
   enrollments Enrollment[]
+  paymentConfig   PaymentConfig?
+  membershipPlans MembershipPlan[]
+  invoices        Invoice[]
+  subscriptions   Subscription[]
 
   @@map("schools")
 }
@@ -197,4 +242,113 @@ model CheckIn {
   // Prevent duplicate check-ins
   @@unique([sessionId, studentId])
   @@map("check_ins")
+}
+
+// ─── Billing Models ─────────────────────────────────────
+
+model PaymentConfig {
+  id              String         @id @default(uuid())
+  schoolId        String         @unique @map("school_id")
+  gateway         PaymentGateway @default(MANUAL)
+  gatewayPublicKey String?       @map("gateway_public_key")
+  gatewaySecretKey String?       @map("gateway_secret_key")  // encrypted at rest
+  gatewayMerchantId String?      @map("gateway_merchant_id") // Square location ID
+  currency        String         @default("USD")
+  taxRate         Float          @default(0) @map("tax_rate") // percentage e.g. 8.25
+  lateFeeAmount   Float          @default(0) @map("late_fee_amount")
+  gracePeriodDays Int            @default(7) @map("grace_period_days")
+  isActive        Boolean        @default(false) @map("is_active")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  // Relations
+  school School @relation(fields: [schoolId], references: [id])
+
+  @@map("payment_configs")
+}
+
+model MembershipPlan {
+  id           String       @id @default(uuid())
+  schoolId     String       @map("school_id")
+  name         String                           // "Adult Monthly", "Family Plan", "Kids Unlimited"
+  description  String?
+  price        Float                            // base price
+  billingCycle BillingCycle @default(MONTHLY) @map("billing_cycle")
+  classCredits Int?         @map("class_credits") // null = unlimited
+  isActive     Boolean      @default(true) @map("is_active")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  school   School    @relation(fields: [schoolId], references: [id])
+  invoices Invoice[]
+  subscriptions Subscription[]
+
+  @@map("membership_plans")
+}
+
+model Invoice {
+  id           String        @id @default(uuid())
+  invoiceNumber String       @unique @map("invoice_number") // e.g. INV-2026-0001
+  schoolId     String        @map("school_id")
+  studentId    String        @map("student_id")
+  planId       String?       @map("plan_id")
+  subtotal     Float
+  taxAmount    Float         @default(0) @map("tax_amount")
+  totalAmount  Float         @map("total_amount")
+  status       InvoiceStatus @default(DRAFT)
+  dueDate      DateTime      @map("due_date") @db.Date
+  paidAt       DateTime?     @map("paid_at")
+  notes        String?
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  school   School          @relation(fields: [schoolId], references: [id])
+  student  User            @relation("StudentInvoices", fields: [studentId], references: [id])
+  plan     MembershipPlan? @relation(fields: [planId], references: [id])
+  payments Payment[]
+
+  @@map("invoices")
+}
+
+model Payment {
+  id                 String        @id @default(uuid())
+  invoiceId          String        @map("invoice_id")
+  amount             Float
+  method             PaymentMethod
+  gatewayTransactionId String?     @map("gateway_transaction_id") // Stripe/Square txn ID
+  recordedById       String?       @map("recorded_by_id")         // staff who recorded manual payment
+  notes              String?
+  paidAt             DateTime      @default(now()) @map("paid_at")
+  createdAt          DateTime      @default(now()) @map("created_at")
+
+  // Relations
+  invoice    Invoice @relation(fields: [invoiceId], references: [id])
+  student    User    @relation("StudentPayments", fields: [studentId], references: [id])
+  recordedBy User?   @relation("RecordedByPayments", fields: [recordedById], references: [id])
+  studentId  String  @map("student_id")
+
+  @@map("payments")
+}
+
+model Subscription {
+  id              String             @id @default(uuid())
+  studentId       String             @map("student_id")
+  planId          String             @map("plan_id")
+  schoolId        String             @map("school_id")
+  status          SubscriptionStatus @default(ACTIVE)
+  startDate       DateTime           @default(now()) @map("start_date")
+  endDate         DateTime?          @map("end_date")
+  nextInvoiceDate DateTime?          @map("next_invoice_date") // when the next auto-invoice should be generated
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+
+  // Relations
+  student User           @relation("StudentSubscriptions", fields: [studentId], references: [id])
+  plan    MembershipPlan @relation(fields: [planId], references: [id])
+  school  School         @relation(fields: [schoolId], references: [id])
+
+  @@unique([studentId, planId, schoolId])
+  @@map("subscriptions")
 }

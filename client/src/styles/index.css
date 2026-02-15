@@ -580,6 +580,131 @@ tr:hover td {
   justify-content: center;
   margin: 1rem 0;
 }
+
+/* ─── Billing ─────────────────────────────────────────── */
+
+.billing-tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 2px solid var(--color-border);
+  padding-bottom: 0;
+}
+
+.billing-tab {
+  padding: 0.6rem 1.2rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--color-text-light);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: all 0.2s;
+}
+
+.billing-tab:hover {
+  color: var(--color-text);
+}
+
+.billing-tab.active {
+  color: var(--color-accent);
+  border-bottom-color: var(--color-accent);
+}
+
+.billing-content {
+  min-height: 300px;
+}
+
+/* Plan cards */
+
+.plans-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.plan-card {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+}
+
+.plan-card.plan-inactive {
+  opacity: 0.6;
+}
+
+.plan-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.plan-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.plan-price {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--color-accent);
+}
+
+.plan-cycle {
+  font-size: 0.85rem;
+  font-weight: 400;
+  color: var(--color-text-light);
+}
+
+.plan-desc {
+  font-size: 0.85rem;
+  color: var(--color-text-light);
+  margin: 0.5rem 0;
+}
+
+.plan-credits {
+  font-size: 0.9rem;
+  margin: 0.5rem 0;
+}
+
+.plan-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+/* Gateway notice */
+
+.billing-gateway-notice {
+  background: #fdf2e9;
+  border: 1px solid #f0b27a;
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+}
+
+.billing-gateway-notice p {
+  margin: 0.25rem 0 0;
+  color: var(--color-text-light);
+}
+
+/* Auto-invoice info */
+
+.auto-invoice-info {
+  background: #eaf2f8;
+  border: 1px solid #85c1e9;
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+  color: #2c3e50;
+}
+
 /* ─── Responsive ──────────────────────────────────────── */
 
 @media (max-width: 768px) {

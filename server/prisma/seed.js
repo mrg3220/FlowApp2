@@ -338,6 +338,265 @@ async function main() {
   }
   console.log(`  ✅ Sample sessions and check-ins created`);
 
+  // ─── Billing: Payment Configs ─────────────────────
+  const config1 = await prisma.paymentConfig.create({
+    data: {
+      schoolId: school1.id,
+      gateway: 'MANUAL',
+      currency: 'USD',
+      taxRate: 8.25,
+      lateFeeAmount: 15.00,
+      gracePeriodDays: 7,
+      isActive: true,
+    },
+  });
+  const config2 = await prisma.paymentConfig.create({
+    data: {
+      schoolId: school2.id,
+      gateway: 'MANUAL',
+      currency: 'USD',
+      taxRate: 6.50,
+      lateFeeAmount: 10.00,
+      gracePeriodDays: 5,
+      isActive: true,
+    },
+  });
+  console.log(`  ✅ Payment configs created`);
+
+  // ─── Billing: Membership Plans ────────────────────
+  const plan1a = await prisma.membershipPlan.create({
+    data: {
+      schoolId: school1.id,
+      name: 'Basic Monthly',
+      description: 'Access up to 8 classes per month',
+      price: 99.00,
+      billingCycle: 'MONTHLY',
+      classCredits: 8,
+    },
+  });
+  const plan1b = await prisma.membershipPlan.create({
+    data: {
+      schoolId: school1.id,
+      name: 'Unlimited Monthly',
+      description: 'Unlimited class access — all disciplines',
+      price: 149.00,
+      billingCycle: 'MONTHLY',
+    },
+  });
+  const plan1c = await prisma.membershipPlan.create({
+    data: {
+      schoolId: school1.id,
+      name: 'Annual Unlimited',
+      description: 'Best value — unlimited access, billed annually',
+      price: 1499.00,
+      billingCycle: 'ANNUAL',
+    },
+  });
+  const plan2a = await prisma.membershipPlan.create({
+    data: {
+      schoolId: school2.id,
+      name: 'Drop-In',
+      description: 'Pay per class',
+      price: 25.00,
+      billingCycle: 'MONTHLY',
+      classCredits: 1,
+    },
+  });
+  const plan2b = await prisma.membershipPlan.create({
+    data: {
+      schoolId: school2.id,
+      name: 'Phoenix Monthly',
+      description: 'Full monthly access to all sessions',
+      price: 129.00,
+      billingCycle: 'MONTHLY',
+    },
+  });
+  console.log(`  ✅ Membership plans created`);
+
+  // Date helpers for billing seed data
+  const now = new Date();
+  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+
+  // ─── Billing: Subscriptions (auto-invoicing) ──────
+  const firstOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+  // School 1 subscriptions
+  await prisma.subscription.create({
+    data: {
+      studentId: students[0].id,
+      planId: plan1b.id,
+      schoolId: school1.id,
+      status: 'ACTIVE',
+      startDate: lastMonth,
+      nextInvoiceDate: firstOfNextMonth,
+    },
+  });
+  await prisma.subscription.create({
+    data: {
+      studentId: students[1].id,
+      planId: plan1a.id,
+      schoolId: school1.id,
+      status: 'ACTIVE',
+      startDate: lastMonth,
+      nextInvoiceDate: firstOfNextMonth,
+    },
+  });
+  await prisma.subscription.create({
+    data: {
+      studentId: students[2].id,
+      planId: plan1b.id,
+      schoolId: school1.id,
+      status: 'ACTIVE',
+      startDate: lastMonth,
+      nextInvoiceDate: firstOfNextMonth,
+    },
+  });
+  await prisma.subscription.create({
+    data: {
+      studentId: students[3].id,
+      planId: plan1c.id,
+      schoolId: school1.id,
+      status: 'PAUSED',
+      startDate: lastMonth,
+      nextInvoiceDate: null,
+    },
+  });
+
+  // School 2 subscriptions
+  await prisma.subscription.create({
+    data: {
+      studentId: students[4].id,
+      planId: plan2b.id,
+      schoolId: school2.id,
+      status: 'ACTIVE',
+      startDate: lastMonth,
+      nextInvoiceDate: firstOfNextMonth,
+    },
+  });
+  await prisma.subscription.create({
+    data: {
+      studentId: students[5].id,
+      planId: plan2a.id,
+      schoolId: school2.id,
+      status: 'ACTIVE',
+      startDate: lastMonth,
+      nextInvoiceDate: firstOfNextMonth,
+    },
+  });
+  console.log(`  ✅ Subscriptions created`);
+
+  // ─── Billing: Invoices ────────────────────────────
+
+  // School 1 invoices
+  const inv1 = await prisma.invoice.create({
+    data: {
+      invoiceNumber: `INV-${now.getFullYear()}-0001`,
+      schoolId: school1.id,
+      studentId: students[0].id,
+      planId: plan1b.id,
+      subtotal: 149.00,
+      taxAmount: 12.29,
+      totalAmount: 161.29,
+      status: 'PAID',
+      dueDate: lastMonth,
+      paidAt: lastMonth,
+    },
+  });
+  const inv2 = await prisma.invoice.create({
+    data: {
+      invoiceNumber: `INV-${now.getFullYear()}-0002`,
+      schoolId: school1.id,
+      studentId: students[1].id,
+      planId: plan1a.id,
+      subtotal: 99.00,
+      taxAmount: 8.17,
+      totalAmount: 107.17,
+      status: 'SENT',
+      dueDate: nextMonth,
+    },
+  });
+  const inv3 = await prisma.invoice.create({
+    data: {
+      invoiceNumber: `INV-${now.getFullYear()}-0003`,
+      schoolId: school1.id,
+      studentId: students[2].id,
+      planId: plan1b.id,
+      subtotal: 149.00,
+      taxAmount: 12.29,
+      totalAmount: 161.29,
+      status: 'PAID',
+      dueDate: lastMonth,
+      paidAt: lastMonth,
+    },
+  });
+
+  // School 2 invoices
+  const inv4 = await prisma.invoice.create({
+    data: {
+      invoiceNumber: `INV-${now.getFullYear()}-0004`,
+      schoolId: school2.id,
+      studentId: students[4].id,
+      planId: plan2b.id,
+      subtotal: 129.00,
+      taxAmount: 8.39,
+      totalAmount: 137.39,
+      status: 'PAID',
+      dueDate: lastMonth,
+      paidAt: lastMonth,
+    },
+  });
+  const inv5 = await prisma.invoice.create({
+    data: {
+      invoiceNumber: `INV-${now.getFullYear()}-0005`,
+      schoolId: school2.id,
+      studentId: students[5].id,
+      planId: plan2a.id,
+      subtotal: 25.00,
+      taxAmount: 1.63,
+      totalAmount: 26.63,
+      status: 'PAST_DUE',
+      dueDate: lastMonth,
+    },
+  });
+  console.log(`  ✅ Sample invoices created`);
+
+  // ─── Billing: Payments ────────────────────────────
+  await prisma.payment.create({
+    data: {
+      invoiceId: inv1.id,
+      studentId: students[0].id,
+      amount: 161.29,
+      method: 'CARD',
+      gatewayTransactionId: 'MANUAL-' + Date.now() + '-001',
+      recordedById: owner1.id,
+      paidAt: lastMonth,
+    },
+  });
+  await prisma.payment.create({
+    data: {
+      invoiceId: inv3.id,
+      studentId: students[2].id,
+      amount: 161.29,
+      method: 'CASH',
+      gatewayTransactionId: 'MANUAL-' + Date.now() + '-002',
+      recordedById: instructor1.id,
+      paidAt: lastMonth,
+    },
+  });
+  await prisma.payment.create({
+    data: {
+      invoiceId: inv4.id,
+      studentId: students[4].id,
+      amount: 137.39,
+      method: 'CHECK',
+      gatewayTransactionId: 'MANUAL-' + Date.now() + '-003',
+      recordedById: owner2.id,
+      paidAt: lastMonth,
+    },
+  });
+  console.log(`  ✅ Sample payments created`);
+
   console.log('\n🎉 Seed complete!');
   console.log('\n📋 Login credentials:');
   console.log('   Super Admin: admin@flowapp.com / admin123');

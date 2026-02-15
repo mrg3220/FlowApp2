@@ -12,6 +12,7 @@ import KioskPage from './pages/KioskPage';
 import SchoolsPage from './pages/SchoolsPage';
 import ProfilePage from './pages/ProfilePage';
 import MetricsPage from './pages/MetricsPage';
+import BillingPage from './pages/BillingPage';
 
 function AppLayout({ children }) {
   return (
@@ -82,6 +83,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <AppLayout><MetricsPage /></AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/billing"
+        element={
+          <ProtectedRoute>
+            <AppLayout><BillingPage /></AppLayout>
           </ProtectedRoute>
         }
       />
