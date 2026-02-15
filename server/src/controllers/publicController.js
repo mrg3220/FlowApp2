@@ -45,10 +45,25 @@ const getPublicEvent = async (req, res, next) => {
 
 // ─── Public Guest Ticket Purchase ────────────────────────
 
+/**
+ * Purchase tickets as an unauthenticated guest.
+ * Input validation: requires eventId, guestName, guestEmail.
+ * Quantity is bounded to prevent abuse (max 10 per transaction).
+ */
 const purchaseGuestTicket = async (req, res, next) => {
   try {
     const { eventId, guestName, guestEmail, guestPhone, quantity } = req.body;
-    const qty = quantity || 1;
+
+    // Input validation — these fields come from unauthenticated users
+    if (!eventId || !guestName || !guestEmail) {
+      return res.status(400).json({ error: 'eventId, guestName, and guestEmail are required' });
+    }
+    // Basic email format check (defence in depth)
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestEmail)) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
+    // Bound quantity to prevent abuse (max 10 per transaction)
+    const qty = Math.min(Math.max(parseInt(quantity, 10) || 1, 1), 10);
 
     const event = await prisma.event.findUnique({ where: { id: eventId } });
     if (!event || !event.isPublic) return res.status(404).json({ error: 'Event not found' });
@@ -110,12 +125,21 @@ const getPublicProducts = async (req, res, next) => {
   } catch (error) { next(error); }
 };
 
+/**
+ * Create a guest order for the public shop.
+ * Input validation: requires guestName, guestEmail, and at least one item.
+ * Item quantities are bounded to prevent abuse.
+ */
 const createGuestOrder = async (req, res, next) => {
   try {
     const { guestName, guestEmail, guestPhone, items, schoolId } = req.body;
 
-    if (!guestEmail) return res.status(400).json({ error: 'Guest email required' });
+    if (!guestName || !guestEmail) return res.status(400).json({ error: 'Guest name and email are required' });
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestEmail)) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
     if (!items?.length) return res.status(400).json({ error: 'No items provided' });
+    if (items.length > 50) return res.status(400).json({ error: 'Too many items in a single order' });
 
     let subtotal = 0;
     const orderItems = [];

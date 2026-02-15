@@ -1,48 +1,118 @@
+# ──────────────────────────────────────────────────────────
+# FlowApp2 — Docker Compose Orchestration
+# ──────────────────────────────────────────────────────────
+# Services:
+#   db      — PostgreSQL 16 database (internal only)
+#   server  — Express API (port 3001, internal + host)
+#   client  — React SPA served by Nginx (port 3000, public)
+#
+# Security notes:
+#   - DB is on an internal-only network (not exposed to host)
+#   - Secrets are sourced from .env file (never hardcoded)
+#   - Containers use non-root users (defined in Dockerfiles)
+#   - Resource limits prevent runaway consumption
+#   - Healthchecks enable automatic restart on failure
+#
+# Usage:
+#   cp .env.example .env   # Fill in real secrets
+#   docker compose up -d   # Start all services
+# ──────────────────────────────────────────────────────────
+
 services:
   # ─── PostgreSQL Database ─────────────────────────────────
+  # Internal-only: no ports published to the host.
+  # Only accessible by other services on the 'backend' network.
   db:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB: flowapp
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    ports:
-      - "5432:5432"
+      # Credentials sourced from .env — never hardcode secrets
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    # Security: DB port NOT exposed to host — internal network only
+    # If you need direct DB access, use: docker exec -it flowapp2-db-1 psql
     volumes:
       - pgdata:/var/lib/postgresql/data
+    networks:
+      - backend
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
 
   # ─── Express API Server ──────────────────────────────────
+  # Connected to both networks:
+  #   - backend: to reach the database
+  #   - frontend: so Nginx can proxy /api/ requests
   server:
     build: ./server
     restart: unless-stopped
     ports:
+      # Expose API to host for development convenience.
+      # In production behind a reverse proxy, remove this.
       - "3001:3001"
     environment:
-      DATABASE_URL: "postgresql://postgres:postgres@db:5432/flowapp?schema=public"
-      JWT_SECRET: "flowapp-docker-jwt-secret-change-in-production"
-      JWT_EXPIRES_IN: "7d"
-      PORT: "3001"
-      NODE_ENV: "production"
+      # All secrets from .env — see .env.example for documentation
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN}
+      PORT: ${PORT}
+      NODE_ENV: ${NODE_ENV}
+      CORS_ORIGIN: ${CORS_ORIGIN}
     depends_on:
       db:
         condition: service_healthy
+    networks:
+      - backend
+      - frontend
+    # Prisma schema push on startup, then start the server
     command: >
-      sh -c "npx prisma db push && node src/index.js"
+      sh -c "npx prisma db push --skip-generate && node src/index.js"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
 
   # ─── React Frontend (Nginx) ─────────────────────────────
+  # Serves the compiled React SPA and proxies /api/ to server.
+  # Only service that needs to be publicly accessible.
   client:
     build: ./client
     restart: unless-stopped
     ports:
+      # The only externally-facing port
       - "3000:3000"
     depends_on:
       - server
+    networks:
+      - frontend
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.5"
+
+# ─── Networks ──────────────────────────────────────────────
+# Defence-in-depth: network segmentation.
+#   backend  — DB ↔ Server only (internal, no external access)
+#   frontend — Server ↔ Client only
+# The DB container cannot be reached from the client container.
+networks:
+  backend:
+    driver: bridge
+    internal: true   # No external access — defence in depth
+  frontend:
+    driver: bridge
 
 volumes:
   pgdata:
+

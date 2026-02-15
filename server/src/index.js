@@ -1,11 +1,22 @@
+/**
+ * ──────────────────────────────────────────────────────────
+ * FlowApp2 — Express API Server Entry Point
+ * ──────────────────────────────────────────────────────────
+ * Initialises middleware, routes, security controls, and
+ * scheduled services. See inline security comments for the
+ * threat model behind each middleware choice.
+ * ──────────────────────────────────────────────────────────
+ */
 require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const config = require('./config');
 const errorHandler = require('./middleware/errorHandler');
 
-// Route imports
+// ─── Route imports ───────────────────────────────────────
 const authRoutes = require('./routes/auth');
 const classRoutes = require('./routes/classes');
 const sessionRoutes = require('./routes/sessions');
@@ -38,17 +49,77 @@ const virtualRoutes = require('./routes/virtual');
 
 const app = express();
 
-// ─── Middleware ───────────────────────────────────────────
-app.use(cors());
-app.use(express.json());
+// ──────────────────────────────────────────────────────────
+// Security Middleware
+// ──────────────────────────────────────────────────────────
 
-// ─── Health check ────────────────────────────────────────
+/**
+ * Helmet — sets secure HTTP response headers.
+ * Mitigates: clickjacking, MIME sniffing, XSS, information leakage.
+ * This is a baseline defence layer; Nginx adds additional headers.
+ */
+app.use(helmet());
+
+/**
+ * CORS — restrict cross-origin requests to known origins.
+ * Mitigates: unauthorized third-party API access.
+ * In production, CORS_ORIGIN should be set to the exact frontend URL.
+ */
+const corsOptions = {
+  origin: config.corsOrigin === '*'
+    ? '*'
+    : config.corsOrigin.split(',').map((o) => o.trim()),
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  maxAge: 600,  // Pre-flight cache: 10 minutes
+};
+app.use(cors(corsOptions));
+
+/**
+ * Body parser with size limit.
+ * Mitigates: denial-of-service via oversized JSON payloads.
+ * 1MB is generous for a JSON API; adjust if file uploads are added.
+ */
+app.use(express.json({ limit: '1mb' }));
+
+/**
+ * Global rate limiter — prevents abuse across all endpoints.
+ * Mitigates: brute-force attacks, scraping, denial of service.
+ * 200 requests per 15-minute window per IP.
+ */
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,  // 15 minutes
+  max: 200,                    // requests per window per IP
+  standardHeaders: true,       // Return rate limit info in RateLimit-* headers
+  legacyHeaders: false,        // Disable X-RateLimit-* headers
+  message: { error: 'Too many requests. Please try again later.' },
+});
+app.use(globalLimiter);
+
+/**
+ * Strict rate limiter for authentication endpoints.
+ * Mitigates: credential stuffing, brute-force login attacks.
+ * 15 attempts per 15-minute window per IP.
+ */
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 15,
+  message: { error: 'Too many authentication attempts. Please wait 15 minutes.' },
+});
+
+// ─── Health check (no auth, lightweight) ─────────────────
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// ─── Routes ──────────────────────────────────────────────
-app.use('/api/auth', authRoutes);
+// ──────────────────────────────────────────────────────────
+// Route Registration
+// ──────────────────────────────────────────────────────────
+
+// Auth routes get the strict rate limiter to prevent brute-force
+app.use('/api/auth', authLimiter, authRoutes);
+
+// Standard authenticated API routes
 app.use('/api/schools', schoolRoutes);
 app.use('/api/classes', classRoutes);
 app.use('/api/sessions', sessionRoutes);
@@ -75,23 +146,29 @@ app.use('/api/venues', venueRoutes);
 app.use('/api/certifications', certificationRoutes);
 app.use('/api/branding', brandingRoutes);
 app.use('/api/help', helpRoutes);
-app.use('/api/public', publicRoutes);
 app.use('/api/virtual', virtualRoutes);
+
+// Public routes — no auth required, but still rate-limited globally
+app.use('/api/public', publicRoutes);
 
 // ─── 404 handler ─────────────────────────────────────────
 app.use((_req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
-// ─── Error handler ───────────────────────────────────────
+// ─── Global error handler (must be last) ─────────────────
 app.use(errorHandler);
 
-// ─── Start server ────────────────────────────────────────
+// ──────────────────────────────────────────────────────────
+// Start Server & Scheduled Services
+// ──────────────────────────────────────────────────────────
 const { startScheduler } = require('./services/autoInvoice');
 const { startNotificationScheduler } = require('./services/notificationService');
+
 app.listen(config.port, () => {
   console.log(`🥋 FlowApp API running on http://localhost:${config.port}`);
   console.log(`   Environment: ${config.nodeEnv}`);
+  console.log(`   CORS origin: ${config.corsOrigin}`);
   startScheduler();
   startNotificationScheduler();
 });

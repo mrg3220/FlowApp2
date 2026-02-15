@@ -28,6 +28,10 @@ export default function RegisterPage() {
       setError('Passwords do not match');
       return;
     }
+    if (form.password.length < 8 || !/[A-Z]/.test(form.password) || !/[a-z]/.test(form.password) || !/[0-9]/.test(form.password)) {
+      setError('Password must be at least 8 characters with an uppercase letter, a lowercase letter, and a digit');
+      return;
+    }
 
     setLoading(true);
     try {
@@ -109,7 +113,7 @@ export default function RegisterPage() {
                 className="form-control"
                 value={form.password}
                 onChange={handleChange}
-                minLength={6}
+                minLength={8}
                 required
               />
             </div>

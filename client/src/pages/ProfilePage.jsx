@@ -224,7 +224,7 @@ export default function ProfilePage() {
             <div className="form-row">
               <div className="form-group">
                 <label>New Password</label>
-                <input type="password" name="newPassword" className="form-control" value={form.newPassword} onChange={handleChange} minLength={6} />
+                <input type="password" name="newPassword" className="form-control" value={form.newPassword} onChange={handleChange} minLength={8} />
               </div>
               <div className="form-group">
                 <label>Confirm New Password</label>

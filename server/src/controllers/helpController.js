@@ -50,16 +50,48 @@ const getCategories = async (req, res, next) => {
   } catch (error) { next(error); }
 };
 
+/**
+ * Create a help article. Only whitelisted fields are accepted
+ * to prevent mass-assignment attacks (e.g., injecting isPublished=true
+ * or arbitrary fields that Prisma might accept).
+ */
 const createArticle = async (req, res, next) => {
   try {
-    const article = await prisma.helpArticle.create({ data: req.body });
+    const { title, content, category, tags, roles, sortOrder, isPublished } = req.body;
+    if (!title || !content || !category) {
+      return res.status(400).json({ error: 'Title, content, and category are required' });
+    }
+    const article = await prisma.helpArticle.create({
+      data: {
+        title,
+        content,
+        category,
+        tags: tags || [],
+        roles: roles || [],
+        sortOrder: sortOrder || 0,
+        isPublished: isPublished !== undefined ? isPublished : false,
+      },
+    });
     res.status(201).json(article);
   } catch (error) { next(error); }
 };
 
+/**
+ * Update a help article. Only whitelisted fields can be modified.
+ */
 const updateArticle = async (req, res, next) => {
   try {
-    const article = await prisma.helpArticle.update({ where: { id: req.params.id }, data: req.body });
+    const { title, content, category, tags, roles, sortOrder, isPublished } = req.body;
+    const data = {};
+    if (title !== undefined) data.title = title;
+    if (content !== undefined) data.content = content;
+    if (category !== undefined) data.category = category;
+    if (tags !== undefined) data.tags = tags;
+    if (roles !== undefined) data.roles = roles;
+    if (sortOrder !== undefined) data.sortOrder = sortOrder;
+    if (isPublished !== undefined) data.isPublished = isPublished;
+
+    const article = await prisma.helpArticle.update({ where: { id: req.params.id }, data });
     res.json(article);
   } catch (error) { next(error); }
 };
