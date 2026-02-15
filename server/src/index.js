@@ -17,6 +17,7 @@ const profileRoutes = require('./routes/profile');
 const metricsRoutes = require('./routes/metrics');
 const billingRoutes = require('./routes/billing');
 const promotionRoutes = require('./routes/promotions');
+const notificationRoutes = require('./routes/notifications');
 
 const app = express();
 
@@ -41,6 +42,7 @@ app.use('/api/profile', profileRoutes);
 app.use('/api/metrics', metricsRoutes);
 app.use('/api/billing', billingRoutes);
 app.use('/api/promotions', promotionRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // ─── 404 handler ─────────────────────────────────────────
 app.use((_req, res) => {
@@ -52,10 +54,12 @@ app.use(errorHandler);
 
 // ─── Start server ────────────────────────────────────────
 const { startScheduler } = require('./services/autoInvoice');
+const { startNotificationScheduler } = require('./services/notificationService');
 app.listen(config.port, () => {
   console.log(`🥋 FlowApp API running on http://localhost:${config.port}`);
   console.log(`   Environment: ${config.nodeEnv}`);
   startScheduler();
+  startNotificationScheduler();
 });
 
 module.exports = app;

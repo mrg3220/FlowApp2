@@ -304,3 +304,42 @@ export const promotionApi = {
   reviewEssay: (essayId, data) =>
     request(`/promotions/essays/${essayId}/review`, { method: 'PATCH', body: JSON.stringify(data) }),
 };
+
+// ─── Notifications ───────────────────────────────────────
+
+export const notificationApi = {
+  // User inbox
+  getMine: (params) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return request(`/notifications/mine${query}`);
+  },
+  markRead: (ids) =>
+    request('/notifications/read', { method: 'PUT', body: JSON.stringify({ ids }) }),
+
+  // Preferences
+  getPreferences: () => request('/notifications/preferences'),
+  updatePreference: (type, channel, enabled) =>
+    request('/notifications/preferences', {
+      method: 'PUT',
+      body: JSON.stringify({ type, channel, enabled }),
+    }),
+
+  // Templates (staff)
+  getTemplates: (schoolId) => request(`/notifications/templates/${schoolId}`),
+  upsertTemplate: (schoolId, data) =>
+    request(`/notifications/templates/${schoolId}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+  // School log (staff)
+  getSchoolLog: (schoolId, params) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return request(`/notifications/school/${schoolId}${query}`);
+  },
+
+  // Send (staff)
+  send: (data) =>
+    request('/notifications/send', { method: 'POST', body: JSON.stringify(data) }),
+
+  // Trigger jobs (super admin)
+  triggerJobs: (job) =>
+    request('/notifications/trigger-jobs', { method: 'POST', body: JSON.stringify({ job }) }),
+};

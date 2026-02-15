@@ -108,6 +108,26 @@ enum TestStatus {
   FAILED
 }
 
+enum NotificationChannel {
+  EMAIL
+  SMS
+  IN_APP
+}
+
+enum NotificationType {
+  WELCOME
+  BIRTHDAY
+  MISSED_CLASS
+  PAYMENT_REMINDER
+  PAYMENT_RECEIPT
+  CLASS_CHANGE
+  CLASS_CANCELLED
+  PROMOTION
+  TEST_SCHEDULED
+  INVOICE_CREATED
+  GENERAL
+}
+
 // ─── Models ──────────────────────────────────────────────
 
 model User {
@@ -139,6 +159,9 @@ model User {
   promotedStudents   Promotion[]   @relation("PromotedByUser")
   testedStudents     BeltTest[]    @relation("TestedByUser")
   reviewedEssays     EssaySubmission[] @relation("EssayReviewer")
+  notifications      Notification[]    @relation("UserNotifications")
+  notificationPrefs  NotificationPreference[] @relation("UserNotifPrefs")
+  dateOfBirth        DateTime?     @map("date_of_birth")
 
   @@map("users")
 }
@@ -168,6 +191,8 @@ model School {
   subscriptions      Subscription[]
   programs           Program[]
   programEnrollments ProgramEnrollment[]
+  notificationTemplates NotificationTemplate[]
+  notifications         Notification[] @relation("SchoolNotifications")
 
   @@map("schools")
 }
@@ -522,4 +547,56 @@ model EssaySubmission {
   reviewedBy User?             @relation("EssayReviewer", fields: [reviewedById], references: [id])
 
   @@map("essay_submissions")
+}
+
+// ─── Notification System ─────────────────────────────────
+
+model NotificationTemplate {
+  id        String             @id @default(uuid())
+  schoolId  String?            @map("school_id")
+  type      NotificationType
+  channel   NotificationChannel @default(EMAIL)
+  subject   String?
+  body      String
+  isActive  Boolean            @default(true) @map("is_active")
+  createdAt DateTime           @default(now()) @map("created_at")
+  updatedAt DateTime           @updatedAt @map("updated_at")
+
+  school School? @relation(fields: [schoolId], references: [id])
+
+  @@unique([schoolId, type, channel])
+  @@map("notification_templates")
+}
+
+model Notification {
+  id        String              @id @default(uuid())
+  userId    String              @map("user_id")
+  schoolId  String?             @map("school_id")
+  type      NotificationType
+  channel   NotificationChannel
+  subject   String?
+  body      String
+  sentAt    DateTime?           @map("sent_at")
+  readAt    DateTime?           @map("read_at")
+  metadata  Json?               // extra context: invoiceId, sessionId, etc.
+  createdAt DateTime            @default(now()) @map("created_at")
+
+  user   User    @relation("UserNotifications", fields: [userId], references: [id])
+  school School? @relation("SchoolNotifications", fields: [schoolId], references: [id])
+
+  @@index([userId, readAt])
+  @@map("notifications")
+}
+
+model NotificationPreference {
+  id        String              @id @default(uuid())
+  userId    String              @map("user_id")
+  type      NotificationType
+  channel   NotificationChannel
+  enabled   Boolean             @default(true)
+
+  user User @relation("UserNotifPrefs", fields: [userId], references: [id])
+
+  @@unique([userId, type, channel])
+  @@map("notification_preferences")
 }

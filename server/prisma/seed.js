@@ -772,6 +772,43 @@ async function main() {
 
   console.log(`  ✅ Sample promotion history created`);
 
+  // ─── Notification Templates (global defaults) ─────
+  const notificationTemplates = [
+    { type: 'WELCOME', channel: 'EMAIL', subject: 'Welcome to FlowApp, {{firstName}}! 🥋', body: 'Hi {{firstName}},\n\nWelcome to FlowApp! We\'re so glad you joined. Explore your classes, track your belt progress, and stay on top of your training.\n\nSee you on the mat!' },
+    { type: 'WELCOME', channel: 'IN_APP', body: '👋 Welcome to FlowApp, {{firstName}}! Head to your dashboard to get started.' },
+    { type: 'BIRTHDAY', channel: 'EMAIL', subject: 'Happy Birthday, {{firstName}}! 🎂', body: 'Happy Birthday, {{firstName}}! 🎉\n\nWishing you an awesome day. Keep training hard and enjoy your special day!' },
+    { type: 'BIRTHDAY', channel: 'IN_APP', body: '🎂 Happy Birthday, {{firstName}}! Have a great day!' },
+    { type: 'MISSED_CLASS', channel: 'EMAIL', subject: 'We miss you, {{firstName}}!', body: 'Hi {{firstName}},\n\nWe noticed you haven\'t attended class in a while. We miss seeing you! Come back soon — your training partners are waiting.' },
+    { type: 'MISSED_CLASS', channel: 'IN_APP', body: '🚫 You haven\'t checked in recently. We miss you — come back to class!' },
+    { type: 'PAYMENT_REMINDER', channel: 'EMAIL', subject: 'Payment Reminder — ${{amount}} due {{dueDate}}', body: 'Hi {{firstName}},\n\nJust a reminder that your payment of ${{amount}} is due on {{dueDate}}. Please make your payment at your earliest convenience.\n\nThank you!' },
+    { type: 'PAYMENT_REMINDER', channel: 'IN_APP', body: '💰 Payment reminder: ${{amount}} due {{dueDate}}.' },
+    { type: 'PAYMENT_RECEIPT', channel: 'EMAIL', subject: 'Payment Received — Thank You!', body: 'Hi {{firstName}},\n\nThank you for your payment of ${{amount}}. Your account is up to date.' },
+    { type: 'CLASS_CHANGE', channel: 'EMAIL', subject: 'Class Schedule Update', body: 'Hi {{firstName}},\n\nThere has been a change to your class schedule. Please check the app for updated times and details.' },
+    { type: 'CLASS_CHANGE', channel: 'IN_APP', body: '📅 A class you\'re enrolled in has been updated. Check the schedule.' },
+    { type: 'CLASS_CANCELLED', channel: 'EMAIL', subject: 'Class Cancelled', body: 'Hi {{firstName}},\n\nUnfortunately, your class has been cancelled. Please check the schedule for alternative sessions.' },
+    { type: 'CLASS_CANCELLED', channel: 'IN_APP', body: '❌ A class has been cancelled. Check the schedule for details.' },
+    { type: 'PROMOTION', channel: 'EMAIL', subject: 'Congratulations on Your Promotion! 🥋', body: 'Congratulations, {{firstName}}! 🎉\n\nYou\'ve been promoted. Keep up the amazing work — your dedication is paying off!' },
+    { type: 'PROMOTION', channel: 'IN_APP', body: '🥋 Congratulations! You\'ve been promoted. Check your belt progress for details.' },
+    { type: 'TEST_SCHEDULED', channel: 'EMAIL', subject: 'Belt Test Scheduled', body: 'Hi {{firstName}},\n\nA belt test has been scheduled. Please check the Promotions page for date, location, and requirements.' },
+    { type: 'TEST_SCHEDULED', channel: 'IN_APP', body: '📋 A belt test has been scheduled. Check the Promotions page for details.' },
+    { type: 'INVOICE_CREATED', channel: 'EMAIL', subject: 'New Invoice — ${{amount}}', body: 'Hi {{firstName}},\n\nA new invoice for ${{amount}} has been created. Please review it on the Billing page.' },
+    { type: 'INVOICE_CREATED', channel: 'IN_APP', body: '🧾 A new invoice for ${{amount}} has been created.' },
+    { type: 'GENERAL', channel: 'EMAIL', subject: '{{subject}}', body: '{{body}}' },
+    { type: 'GENERAL', channel: 'IN_APP', body: '{{body}}' },
+    { type: 'GENERAL', channel: 'SMS', body: '{{body}}' },
+  ];
+
+  for (const tmpl of notificationTemplates) {
+    const existing = await prisma.notificationTemplate.findFirst({
+      where: { schoolId: tmpl.schoolId || null, type: tmpl.type, channel: tmpl.channel },
+    });
+    if (!existing) {
+      await prisma.notificationTemplate.create({ data: tmpl });
+    }
+  }
+
+  console.log(`  ✅ ${notificationTemplates.length} notification templates created`);
+
   console.log('\n🎉 Seed complete!');
   console.log('\n📋 Login credentials:');
   console.log('   Super Admin: admin@flowapp.com / admin123');

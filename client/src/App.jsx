@@ -14,6 +14,7 @@ import ProfilePage from './pages/ProfilePage';
 import MetricsPage from './pages/MetricsPage';
 import BillingPage from './pages/BillingPage';
 import PromotionsPage from './pages/PromotionsPage';
+import NotificationsPage from './pages/NotificationsPage';
 
 function AppLayout({ children }) {
   return (
@@ -100,6 +101,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <AppLayout><PromotionsPage /></AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/notifications"
+        element={
+          <ProtectedRoute>
+            <AppLayout><NotificationsPage /></AppLayout>
           </ProtectedRoute>
         }
       />
