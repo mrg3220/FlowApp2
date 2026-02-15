@@ -47,6 +47,9 @@ export default function Sidebar() {
         <NavLink to="/metrics" className={({ isActive }) => (isActive ? 'active' : '')}>
           📈 Metrics
         </NavLink>
+        <NavLink to="/billing" className={({ isActive }) => (isActive ? 'active' : '')}>
+          💰 Billing
+        </NavLink>
         <NavLink to="/profile" className={({ isActive }) => (isActive ? 'active' : '')}>
           👤 Profile
         </NavLink>

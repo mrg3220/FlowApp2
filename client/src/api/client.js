@@ -175,3 +175,67 @@ export const metricsApi = {
 
   getStudent: () => request('/metrics/student'),
 };
+
+// ─── Billing ─────────────────────────────────────────────
+
+export const billingApi = {
+  // Payment config (per-school)
+  getConfig: (schoolId) => request(`/billing/config/${schoolId}`),
+  updateConfig: (schoolId, data) =>
+    request(`/billing/config/${schoolId}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+  // Membership plans
+  getPlans: (schoolId, params) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return request(`/billing/plans/${schoolId}${query}`);
+  },
+  createPlan: (schoolId, data) =>
+    request(`/billing/plans/${schoolId}`, { method: 'POST', body: JSON.stringify(data) }),
+  updatePlan: (schoolId, planId, data) =>
+    request(`/billing/plans/${schoolId}/${planId}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deletePlan: (schoolId, planId) =>
+    request(`/billing/plans/${schoolId}/${planId}`, { method: 'DELETE' }),
+
+  // Invoices
+  getInvoices: (schoolId, params) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return request(`/billing/invoices/${schoolId}${query}`);
+  },
+  createInvoice: (schoolId, data) =>
+    request(`/billing/invoices/${schoolId}`, { method: 'POST', body: JSON.stringify(data) }),
+  updateInvoiceStatus: (schoolId, invoiceId, status) =>
+    request(`/billing/invoices/${schoolId}/${invoiceId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    }),
+
+  // Payments
+  getPayments: (schoolId, params) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return request(`/billing/payments/${schoolId}${query}`);
+  },
+  recordPayment: (schoolId, data) =>
+    request(`/billing/payments/${schoolId}`, { method: 'POST', body: JSON.stringify(data) }),
+
+  // Summary
+  getSummary: (schoolId) => request(`/billing/summary/${schoolId}`),
+
+  // Subscriptions
+  getSubscriptions: (schoolId, params) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return request(`/billing/subscriptions/${schoolId}${query}`);
+  },
+  createSubscription: (schoolId, data) =>
+    request(`/billing/subscriptions/${schoolId}`, { method: 'POST', body: JSON.stringify(data) }),
+  updateSubscription: (schoolId, subscriptionId, data) =>
+    request(`/billing/subscriptions/${schoolId}/${subscriptionId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+  cancelSubscription: (schoolId, subscriptionId) =>
+    request(`/billing/subscriptions/${schoolId}/${subscriptionId}`, { method: 'DELETE' }),
+
+  // Auto-invoice manual trigger
+  runAutoInvoice: () =>
+    request('/billing/auto-invoice/run', { method: 'POST' }),
+};
