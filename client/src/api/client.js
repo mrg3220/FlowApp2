@@ -33,6 +33,27 @@ async function request(endpoint, options = {}) {
   return data;
 }
 
+/**
+ * Unwraps paginated API responses to return just the data array.
+ * Handles both new paginated format {data: [], pagination: {...}} and legacy plain arrays.
+ * @param {Promise} requestPromise - The promise from request()
+ * @returns {Promise<Array>} - Just the data array
+ */
+async function requestArray(endpoint, options = {}) {
+  const result = await request(endpoint, options);
+  // Handle paginated response: {data: [...], pagination: {...}}
+  if (result && typeof result === 'object' && Array.isArray(result.data)) {
+    return result.data;
+  }
+  // Handle legacy plain array response
+  if (Array.isArray(result)) {
+    return result;
+  }
+  // Fallback: return empty array if unexpected format
+  console.warn('Unexpected API response format:', endpoint, result);
+  return [];
+}
+
 // ─── Auth ────────────────────────────────────────────────
 
 export const authApi = {
@@ -48,7 +69,7 @@ export const authApi = {
 // ─── Schools ─────────────────────────────────────────────
 
 export const schoolApi = {
-  getAll: () => request('/schools'),
+  getAll: () => requestArray('/schools'),
 
   getById: (id) => request(`/schools/${id}`),
 
@@ -67,10 +88,10 @@ export const schoolApi = {
 export const enrollmentApi = {
   getAll: (params) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
-    return request(`/enrollments${query}`);
+    return requestArray(`/enrollments${query}`);
   },
 
-  getSchoolStudents: (schoolId) => request(`/enrollments/school/${schoolId}/students`),
+  getSchoolStudents: (schoolId) => requestArray(`/enrollments/school/${schoolId}/students`),
 
   enroll: (studentId, schoolId) =>
     request('/enrollments', { method: 'POST', body: JSON.stringify({ studentId, schoolId }) }),
@@ -87,7 +108,7 @@ export const enrollmentApi = {
 export const classApi = {
   getAll: (params) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
-    return request(`/classes${query}`);
+    return requestArray(`/classes${query}`);
   },
 
   getById: (id) => request(`/classes/${id}`),
@@ -107,7 +128,7 @@ export const classApi = {
 export const sessionApi = {
   getAll: (params) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
-    return request(`/sessions${query}`);
+    return requestArray(`/sessions${query}`);
   },
 
   getById: (id) => request(`/sessions/${id}`),
@@ -146,7 +167,7 @@ export const checkInApi = {
 export const userApi = {
   getAll: (params) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
-    return request(`/users${query}`);
+    return requestArray(`/users${query}`);
   },
 
   getById: (id) => request(`/users/${id}`),
@@ -187,7 +208,7 @@ export const billingApi = {
   // Membership plans
   getPlans: (schoolId, params) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
-    return request(`/billing/plans/${schoolId}${query}`);
+    return requestArray(`/billing/plans/${schoolId}${query}`);
   },
   createPlan: (schoolId, data) =>
     request(`/billing/plans/${schoolId}`, { method: 'POST', body: JSON.stringify(data) }),
@@ -199,7 +220,7 @@ export const billingApi = {
   // Invoices
   getInvoices: (schoolId, params) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
-    return request(`/billing/invoices/${schoolId}${query}`);
+    return requestArray(`/billing/invoices/${schoolId}${query}`);
   },
   createInvoice: (schoolId, data) =>
     request(`/billing/invoices/${schoolId}`, { method: 'POST', body: JSON.stringify(data) }),
@@ -212,7 +233,7 @@ export const billingApi = {
   // Payments
   getPayments: (schoolId, params) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
-    return request(`/billing/payments/${schoolId}${query}`);
+    return requestArray(`/billing/payments/${schoolId}${query}`);
   },
   recordPayment: (schoolId, data) =>
     request(`/billing/payments/${schoolId}`, { method: 'POST', body: JSON.stringify(data) }),
@@ -223,7 +244,7 @@ export const billingApi = {
   // Subscriptions
   getSubscriptions: (schoolId, params) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
-    return request(`/billing/subscriptions/${schoolId}${query}`);
+    return requestArray(`/billing/subscriptions/${schoolId}${query}`);
   },
   createSubscription: (schoolId, data) =>
     request(`/billing/subscriptions/${schoolId}`, { method: 'POST', body: JSON.stringify(data) }),
@@ -246,7 +267,7 @@ export const promotionApi = {
   // Programs
   getPrograms: (params) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
-    return request(`/promotions/programs${query}`);
+    return requestArray(`/promotions/programs${query}`);
   },
   getProgram: (programId) => request(`/promotions/programs/${programId}`),
   createProgram: (data) =>
@@ -273,7 +294,7 @@ export const promotionApi = {
   // Program Enrollments
   getEnrollments: (schoolId, params) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
-    return request(`/promotions/enrollments/${schoolId}${query}`);
+    return requestArray(`/promotions/enrollments/${schoolId}${query}`);
   },
   createEnrollment: (schoolId, data) =>
     request(`/promotions/enrollments/${schoolId}`, { method: 'POST', body: JSON.stringify(data) }),
@@ -290,7 +311,7 @@ export const promotionApi = {
   // Belt Tests
   getTests: (schoolId, params) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
-    return request(`/promotions/tests/${schoolId}${query}`);
+    return requestArray(`/promotions/tests/${schoolId}${query}`);
   },
   createTest: (data) =>
     request('/promotions/tests', { method: 'POST', body: JSON.stringify(data) }),
@@ -311,7 +332,7 @@ export const notificationApi = {
   // User inbox
   getMine: (params) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
-    return request(`/notifications/mine${query}`);
+    return requestArray(`/notifications/mine${query}`);
   },
   markRead: (ids) =>
     request('/notifications/read', { method: 'PUT', body: JSON.stringify({ ids }) }),
@@ -332,7 +353,7 @@ export const notificationApi = {
   // School log (staff)
   getSchoolLog: (schoolId, params) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
-    return request(`/notifications/school/${schoolId}${query}`);
+    return requestArray(`/notifications/school/${schoolId}${query}`);
   },
 
   // Send (staff)
@@ -348,12 +369,12 @@ export const notificationApi = {
 
 export const familyApi = {
   // My families (any user)
-  getMine: () => request('/families/mine'),
+  getMine: () => requestArray('/families/mine'),
 
   // School families (staff)
   getBySchool: (schoolId, params) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
-    return request(`/families/school/${schoolId}${query}`);
+    return requestArray(`/families/school/${schoolId}${query}`);
   },
 
   // Single family
@@ -385,7 +406,7 @@ export const studentPortalApi = {
   getDashboard: () => request('/student-portal/dashboard'),
   getSchedule: (params) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
-    return request(`/student-portal/schedule${query}`);
+    return requestArray(`/student-portal/schedule${query}`);
   },
 };
 
@@ -394,7 +415,7 @@ export const studentPortalApi = {
 export const leadApi = {
   getBySchool: (schoolId, params) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
-    return request(`/leads/school/${schoolId}${query}`);
+    return requestArray(`/leads/school/${schoolId}${query}`);
   },
   getById: (id) => request(`/leads/${id}`),
   create: (schoolId, data) => request(`/leads/school/${schoolId}`, { method: 'POST', body: JSON.stringify(data) }),
@@ -409,7 +430,7 @@ export const leadApi = {
 export const curriculumApi = {
   getAll: (params) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
-    return request(`/curriculum${query}`);
+    return requestArray(`/curriculum${query}`);
   },
   getById: (id) => request(`/curriculum/${id}`),
   getCategories: () => request('/curriculum/categories'),
@@ -423,7 +444,7 @@ export const curriculumApi = {
 export const reportingApi = {
   getRevenue: (schoolId, params) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
-    return request(`/reporting/revenue/${schoolId}${query}`);
+    return requestArray(`/reporting/revenue/${schoolId}${query}`);
   },
   getRevenueBySchool: () => request('/reporting/revenue-by-school'),
   getPaymentMethods: (schoolId) => request(`/reporting/payment-methods/${schoolId}`),
@@ -434,12 +455,12 @@ export const reportingApi = {
 export const waiverApi = {
   getMine: () => request('/waivers/mine'),
   sign: (id, data) => request(`/waivers/${id}/sign`, { method: 'PUT', body: JSON.stringify(data) }),
-  getTemplates: (schoolId) => request(`/waivers/templates/${schoolId}`),
+  getTemplates: (schoolId) => requestArray(`/waivers/templates/${schoolId}`),
   createTemplate: (schoolId, data) => request(`/waivers/templates/${schoolId}`, { method: 'POST', body: JSON.stringify(data) }),
   updateTemplate: (id, data) => request(`/waivers/templates/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   getBySchool: (schoolId, params) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
-    return request(`/waivers/school/${schoolId}${query}`);
+    return requestArray(`/waivers/school/${schoolId}${query}`);
   },
   send: (data) => request('/waivers/send', { method: 'POST', body: JSON.stringify(data) }),
 };
@@ -449,15 +470,15 @@ export const waiverApi = {
 export const retailApi = {
   getProducts: (schoolId, params) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
-    return request(`/retail/products/${schoolId}${query}`);
+    return requestArray(`/retail/products/${schoolId}${query}`);
   },
   createProduct: (schoolId, data) => request(`/retail/products/${schoolId}`, { method: 'POST', body: JSON.stringify(data) }),
   updateProduct: (id, data) => request(`/retail/products/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   updateInventory: (productId, data) => request(`/retail/inventory/${productId}`, { method: 'PUT', body: JSON.stringify(data) }),
-  getLowStock: (schoolId) => request(`/retail/low-stock/${schoolId}`),
+  getLowStock: (schoolId) => requestArray(`/retail/low-stock/${schoolId}`),
   getOrders: (schoolId, params) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
-    return request(`/retail/orders/${schoolId}${query}`);
+    return requestArray(`/retail/orders/${schoolId}${query}`);
   },
   createOrder: (schoolId, data) => request(`/retail/orders/${schoolId}`, { method: 'POST', body: JSON.stringify(data) }),
   updateOrderStatus: (id, status) => request(`/retail/orders/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
@@ -466,13 +487,13 @@ export const retailApi = {
 // ─── Certificates ────────────────────────────────────────
 
 export const certificateApi = {
-  getTemplates: (schoolId) => request(`/certificates/templates/${schoolId || ''}`),
+  getTemplates: (schoolId) => requestArray(`/certificates/templates/${schoolId || ''}`),
   createTemplate: (data) => request('/certificates/templates', { method: 'POST', body: JSON.stringify(data) }),
   updateTemplate: (id, data) => request(`/certificates/templates/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteTemplate: (id) => request(`/certificates/templates/${id}`, { method: 'DELETE' }),
   getAll: (params) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
-    return request(`/certificates${query}`);
+    return requestArray(`/certificates${query}`);
   },
   generate: (data) => request('/certificates/generate', { method: 'POST', body: JSON.stringify(data) }),
 };
@@ -480,8 +501,8 @@ export const certificateApi = {
 // ─── Training Plans ──────────────────────────────────────
 
 export const trainingPlanApi = {
-  getMyPlans: () => request('/training-plans/mine'),
-  getBySchool: (schoolId) => request(`/training-plans/school/${schoolId}`),
+  getMyPlans: () => requestArray('/training-plans/mine'),
+  getBySchool: (schoolId) => requestArray(`/training-plans/school/${schoolId}`),
   getById: (id) => request(`/training-plans/${id}`),
   create: (schoolId, data) => request(`/training-plans/school/${schoolId}`, { method: 'POST', body: JSON.stringify(data) }),
   update: (id, data) => request(`/training-plans/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
@@ -497,11 +518,11 @@ export const trainingPlanApi = {
 export const payrollApi = {
   getEntries: (schoolId, params) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
-    return request(`/payroll/school/${schoolId}${query}`);
+    return requestArray(`/payroll/school/${schoolId}${query}`);
   },
   getSummary: (schoolId, params) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
-    return request(`/payroll/summary/${schoolId}${query}`);
+    return requestArray(`/payroll/summary/${schoolId}${query}`);
   },
   create: (schoolId, data) => request(`/payroll/school/${schoolId}`, { method: 'POST', body: JSON.stringify(data) }),
   approve: (ids) => request('/payroll/approve', { method: 'POST', body: JSON.stringify({ ids }) }),
@@ -513,7 +534,7 @@ export const payrollApi = {
 export const eventApi = {
   getAll: (params) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
-    return request(`/events${query}`);
+    return requestArray(`/events${query}`);
   },
   getById: (id) => request(`/events/${id}`),
   create: (data) => request('/events', { method: 'POST', body: JSON.stringify(data) }),
@@ -533,7 +554,7 @@ export const eventApi = {
 export const venueApi = {
   getAll: (params) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
-    return request(`/venues${query}`);
+    return requestArray(`/venues${query}`);
   },
   getById: (id) => request(`/venues/${id}`),
   create: (data) => request('/venues', { method: 'POST', body: JSON.stringify(data) }),
@@ -545,7 +566,7 @@ export const venueApi = {
 export const certificationApi = {
   getAll: (params) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
-    return request(`/certifications${query}`);
+    return requestArray(`/certifications${query}`);
   },
   getById: (id) => request(`/certifications/${id}`),
   create: (data) => request('/certifications', { method: 'POST', body: JSON.stringify(data) }),
@@ -568,7 +589,7 @@ export const brandingApi = {
 export const helpApi = {
   getArticles: (params) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
-    return request(`/help/articles${query}`);
+    return requestArray(`/help/articles${query}`);
   },
   getArticle: (id) => request(`/help/articles/${id}`),
   getCategories: () => request('/help/articles/categories'),
@@ -610,7 +631,7 @@ export const publicApi = {
 export const virtualApi = {
   getContent: (params) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
-    return request(`/virtual${query}`);
+    return requestArray(`/virtual${query}`);
   },
   getById: (id) => request(`/virtual/${id}`),
   getStats: (id) => request(`/virtual/${id}/stats`),
@@ -629,7 +650,7 @@ export const adminApi = {
   // User management
   getUsers: (params) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
-    return request(`/admin/users${query}`);
+    return requestArray(`/admin/users${query}`);
   },
   getUser: (id) => request(`/admin/users/${id}`),
   createUser: (data) => request('/admin/users/create', { method: 'POST', body: JSON.stringify(data) }),
@@ -641,13 +662,13 @@ export const adminApi = {
   // Audit logs
   getAuditLogs: (params) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
-    return request(`/admin/audit-logs${query}`);
+    return requestArray(`/admin/audit-logs${query}`);
   },
 
   // System settings
   getSettings: (params) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
-    return request(`/admin/settings${query}`);
+    return requestArray(`/admin/settings${query}`);
   },
   upsertSetting: (key, data) => request(`/admin/settings/${key}`, { method: 'PUT', body: JSON.stringify(data) }),
 };
@@ -661,7 +682,7 @@ export const sreApi = {
   getRequests: () => request('/sre/requests'),
   getErrors: (params) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
-    return request(`/sre/errors${query}`);
+    return requestArray(`/sre/errors${query}`);
   },
   getRuntime: () => request('/sre/runtime'),
 };

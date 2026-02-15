@@ -115,6 +115,12 @@ services:
       - server
     networks:
       - frontend
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
     # Security: prevent privilege escalation inside the container
     security_opt:
       - no-new-privileges:true
