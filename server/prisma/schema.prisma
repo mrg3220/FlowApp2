@@ -92,6 +92,22 @@ enum SubscriptionStatus {
   CANCELLED
 }
 
+enum RequirementType {
+  MIN_ATTENDANCE
+  TECHNIQUE
+  TIME_IN_RANK
+  MIN_AGE
+  ESSAY
+  CUSTOM
+}
+
+enum TestStatus {
+  SCHEDULED
+  IN_PROGRESS
+  PASSED
+  FAILED
+}
+
 // ─── Models ──────────────────────────────────────────────
 
 model User {
@@ -119,6 +135,10 @@ model User {
   payments          Payment[]    @relation("StudentPayments")
   recordedPayments  Payment[]    @relation("RecordedByPayments")
   subscriptions     Subscription[] @relation("StudentSubscriptions")
+  programEnrollments ProgramEnrollment[] @relation("StudentPrograms")
+  promotedStudents   Promotion[]   @relation("PromotedByUser")
+  testedStudents     BeltTest[]    @relation("TestedByUser")
+  reviewedEssays     EssaySubmission[] @relation("EssayReviewer")
 
   @@map("users")
 }
@@ -142,10 +162,12 @@ model School {
   staff       User[]       @relation("SchoolStaff")
   classes     Class[]
   enrollments Enrollment[]
-  paymentConfig   PaymentConfig?
-  membershipPlans MembershipPlan[]
-  invoices        Invoice[]
-  subscriptions   Subscription[]
+  paymentConfig      PaymentConfig?
+  membershipPlans    MembershipPlan[]
+  invoices           Invoice[]
+  subscriptions      Subscription[]
+  programs           Program[]
+  programEnrollments ProgramEnrollment[]
 
   @@map("schools")
 }
@@ -351,4 +373,153 @@ model Subscription {
 
   @@unique([studentId, planId, schoolId])
   @@map("subscriptions")
+}
+
+// ─── Belt Promotion Models ────────────────────────────────
+
+model Program {
+  id               String    @id @default(uuid())
+  name             String
+  description      String?
+  schoolId         String?   @map("school_id")   // null = global program (e.g., Shaolin Wing Chun)
+  isGlobal         Boolean   @default(false) @map("is_global")
+  hasRankStructure Boolean   @default(true) @map("has_rank_structure")
+  isActive         Boolean   @default(true) @map("is_active")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  school      School?             @relation(fields: [schoolId], references: [id])
+  belts       Belt[]
+  enrollments ProgramEnrollment[]
+
+  @@map("programs")
+}
+
+model Belt {
+  id           String   @id @default(uuid())
+  programId    String   @map("program_id")
+  name         String
+  displayOrder Int      @map("display_order")   // 1 = lowest rank, ascending
+  color        String?                          // hex color for UI badge
+  description  String?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  program        Program             @relation(fields: [programId], references: [id], onDelete: Cascade)
+  requirements   BeltRequirement[]
+  currentHolders ProgramEnrollment[] @relation("CurrentBelt")
+  promotionsTo   Promotion[]         @relation("PromotionToBelt")
+  promotionsFrom Promotion[]         @relation("PromotionFromBelt")
+  tests          BeltTest[]
+
+  @@unique([programId, displayOrder])
+  @@map("belts")
+}
+
+model BeltRequirement {
+  id          String          @id @default(uuid())
+  beltId      String          @map("belt_id")
+  type        RequirementType
+  description String
+  value       Float?                              // numeric threshold (classes, months, age)
+  isRequired  Boolean         @default(true) @map("is_required")
+  createdAt   DateTime        @default(now()) @map("created_at")
+
+  belt     Belt                  @relation(fields: [beltId], references: [id], onDelete: Cascade)
+  progress RequirementProgress[]
+
+  @@map("belt_requirements")
+}
+
+model ProgramEnrollment {
+  id            String    @id @default(uuid())
+  studentId     String    @map("student_id")
+  programId     String    @map("program_id")
+  schoolId      String    @map("school_id")
+  currentBeltId String?   @map("current_belt_id")
+  enrolledAt    DateTime  @default(now()) @map("enrolled_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  student     User    @relation("StudentPrograms", fields: [studentId], references: [id])
+  program     Program @relation(fields: [programId], references: [id])
+  school      School  @relation(fields: [schoolId], references: [id])
+  currentBelt Belt?   @relation("CurrentBelt", fields: [currentBeltId], references: [id])
+  progress    RequirementProgress[]
+  promotions  Promotion[]
+  tests       BeltTest[]
+  essays      EssaySubmission[]
+
+  @@unique([studentId, programId, schoolId])
+  @@map("program_enrollments")
+}
+
+model RequirementProgress {
+  id                  String    @id @default(uuid())
+  programEnrollmentId String    @map("program_enrollment_id")
+  requirementId       String    @map("requirement_id")
+  currentValue        Float     @default(0) @map("current_value")
+  isComplete          Boolean   @default(false) @map("is_complete")
+  completedAt         DateTime? @map("completed_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  enrollment  ProgramEnrollment @relation(fields: [programEnrollmentId], references: [id], onDelete: Cascade)
+  requirement BeltRequirement   @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+
+  @@unique([programEnrollmentId, requirementId])
+  @@map("requirement_progress")
+}
+
+model Promotion {
+  id                  String   @id @default(uuid())
+  programEnrollmentId String   @map("program_enrollment_id")
+  fromBeltId          String?  @map("from_belt_id")
+  toBeltId            String   @map("to_belt_id")
+  promotedById        String   @map("promoted_by_id")
+  notes               String?
+  promotedAt          DateTime @default(now()) @map("promoted_at")
+
+  enrollment ProgramEnrollment @relation(fields: [programEnrollmentId], references: [id])
+  fromBelt   Belt?             @relation("PromotionFromBelt", fields: [fromBeltId], references: [id])
+  toBelt     Belt              @relation("PromotionToBelt", fields: [toBeltId], references: [id])
+  promotedBy User              @relation("PromotedByUser", fields: [promotedById], references: [id])
+
+  @@map("promotions")
+}
+
+model BeltTest {
+  id                  String     @id @default(uuid())
+  programEnrollmentId String     @map("program_enrollment_id")
+  beltId              String     @map("belt_id")
+  testDate            DateTime   @map("test_date")
+  status              TestStatus @default(SCHEDULED)
+  score               Float?
+  notes               String?
+  testedById          String?    @map("tested_by_id")
+  createdAt           DateTime   @default(now()) @map("created_at")
+  updatedAt           DateTime   @updatedAt @map("updated_at")
+
+  enrollment ProgramEnrollment @relation(fields: [programEnrollmentId], references: [id])
+  belt       Belt              @relation(fields: [beltId], references: [id])
+  testedBy   User?             @relation("TestedByUser", fields: [testedById], references: [id])
+  essays     EssaySubmission[]
+
+  @@map("belt_tests")
+}
+
+model EssaySubmission {
+  id                  String    @id @default(uuid())
+  programEnrollmentId String    @map("program_enrollment_id")
+  beltTestId          String?   @map("belt_test_id")
+  title               String?
+  content             String
+  submittedAt         DateTime  @default(now()) @map("submitted_at")
+  reviewedById        String?   @map("reviewed_by_id")
+  reviewedAt          DateTime? @map("reviewed_at")
+  score               Float?
+  feedback            String?
+
+  enrollment ProgramEnrollment @relation(fields: [programEnrollmentId], references: [id])
+  test       BeltTest?         @relation(fields: [beltTestId], references: [id])
+  reviewedBy User?             @relation("EssayReviewer", fields: [reviewedById], references: [id])
+
+  @@map("essay_submissions")
 }

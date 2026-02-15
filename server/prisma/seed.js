@@ -597,6 +597,181 @@ async function main() {
   });
   console.log(`  ✅ Sample payments created`);
 
+  // ─── Belt Promotion System ───────────────────────
+  // Shaolin Wing Chun — global program for all schools
+  const swcProgram = await prisma.program.create({
+    data: {
+      name: 'Shaolin Wing Chun',
+      description: 'Traditional Shaolin Wing Chun Kung Fu system with forms, techniques, and chi sau training.',
+      isGlobal: true,
+      hasRankStructure: true,
+    },
+  });
+
+  // BJJ — school-specific to Dragon Martial Arts
+  const bjjProgram = await prisma.program.create({
+    data: {
+      name: 'Brazilian Jiu-Jitsu',
+      description: 'Ground fighting and grappling program for Dragon Martial Arts.',
+      schoolId: school1.id,
+      isGlobal: false,
+      hasRankStructure: true,
+    },
+  });
+
+  // Kids Karate — Phoenix Dojo, no rank structure
+  const karateProgram = await prisma.program.create({
+    data: {
+      name: 'Kids Fitness',
+      description: 'Fun and fitness for children — no formal belt ranking.',
+      schoolId: school2.id,
+      isGlobal: false,
+      hasRankStructure: false,
+    },
+  });
+
+  console.log(`  ✅ Programs: SWC (global), BJJ (school 1), Kids Fitness (school 2)`);
+
+  // ─── SWC Belts ────────────────────────────────────
+  const swcBeltData = [
+    { name: 'White Sash', displayOrder: 1, color: '#FFFFFF', description: 'Beginner — Siu Nim Tao basics' },
+    { name: 'Yellow Sash', displayOrder: 2, color: '#FFD700', description: 'Siu Nim Tao — complete form' },
+    { name: 'Orange Sash', displayOrder: 3, color: '#FF8C00', description: 'Chum Kiu introduction' },
+    { name: 'Green Sash', displayOrder: 4, color: '#228B22', description: 'Chum Kiu — complete form' },
+    { name: 'Blue Sash', displayOrder: 5, color: '#1E90FF', description: 'Biu Jee introduction' },
+    { name: 'Brown Sash', displayOrder: 6, color: '#8B4513', description: 'Biu Jee — complete form, Wooden dummy' },
+    { name: 'Black Sash', displayOrder: 7, color: '#000000', description: 'Master level — all forms, weapons' },
+  ];
+
+  const swcBelts = [];
+  for (const bd of swcBeltData) {
+    const belt = await prisma.belt.create({
+      data: { programId: swcProgram.id, ...bd },
+    });
+    swcBelts.push(belt);
+  }
+
+  // ─── SWC Requirements per belt ────────────────────
+  // Yellow Sash requirements
+  await prisma.beltRequirement.createMany({
+    data: [
+      { beltId: swcBelts[1].id, type: 'MIN_ATTENDANCE', description: 'Attend at least 30 classes', value: 30, isRequired: true },
+      { beltId: swcBelts[1].id, type: 'TECHNIQUE', description: 'Siu Nim Tao form — all 3 sections', value: 1, isRequired: true },
+      { beltId: swcBelts[1].id, type: 'TIME_IN_RANK', description: 'Minimum 3 months at White Sash', value: 3, isRequired: true },
+      { beltId: swcBelts[1].id, type: 'ESSAY', description: 'Write a short essay on Wing Chun principles', value: 1, isRequired: true },
+    ],
+  });
+  // Orange Sash requirements
+  await prisma.beltRequirement.createMany({
+    data: [
+      { beltId: swcBelts[2].id, type: 'MIN_ATTENDANCE', description: 'Attend at least 60 classes total', value: 60, isRequired: true },
+      { beltId: swcBelts[2].id, type: 'TECHNIQUE', description: 'Chi Sau — single-hand rolling', value: 1, isRequired: true },
+      { beltId: swcBelts[2].id, type: 'TIME_IN_RANK', description: 'Minimum 4 months at Yellow Sash', value: 4, isRequired: true },
+      { beltId: swcBelts[2].id, type: 'ESSAY', description: 'Essay on centerline theory', value: 1, isRequired: true },
+    ],
+  });
+  // Green Sash requirements
+  await prisma.beltRequirement.createMany({
+    data: [
+      { beltId: swcBelts[3].id, type: 'MIN_ATTENDANCE', description: 'Attend at least 100 classes total', value: 100, isRequired: true },
+      { beltId: swcBelts[3].id, type: 'TECHNIQUE', description: 'Chum Kiu complete form', value: 1, isRequired: true },
+      { beltId: swcBelts[3].id, type: 'TECHNIQUE', description: 'Chi Sau — double-hand rolling', value: 1, isRequired: true },
+      { beltId: swcBelts[3].id, type: 'TIME_IN_RANK', description: 'Minimum 6 months at Orange Sash', value: 6, isRequired: true },
+      { beltId: swcBelts[3].id, type: 'ESSAY', description: 'Essay on structure and body mechanics', value: 1, isRequired: true },
+    ],
+  });
+  // Blue Sash requirements
+  await prisma.beltRequirement.createMany({
+    data: [
+      { beltId: swcBelts[4].id, type: 'MIN_ATTENDANCE', description: 'Attend at least 150 classes total', value: 150, isRequired: true },
+      { beltId: swcBelts[4].id, type: 'TECHNIQUE', description: 'Biu Jee introduction sections', value: 1, isRequired: true },
+      { beltId: swcBelts[4].id, type: 'TIME_IN_RANK', description: 'Minimum 8 months at Green Sash', value: 8, isRequired: true },
+      { beltId: swcBelts[4].id, type: 'ESSAY', description: 'Essay on the evolution from Chum Kiu to Biu Jee', value: 1, isRequired: true },
+    ],
+  });
+  // Brown Sash requirements
+  await prisma.beltRequirement.createMany({
+    data: [
+      { beltId: swcBelts[5].id, type: 'MIN_ATTENDANCE', description: 'Attend at least 200 classes total', value: 200, isRequired: true },
+      { beltId: swcBelts[5].id, type: 'TECHNIQUE', description: 'Biu Jee complete form', value: 1, isRequired: true },
+      { beltId: swcBelts[5].id, type: 'TECHNIQUE', description: 'Muk Yan Jong (Wooden Dummy) — first 4 sections', value: 1, isRequired: true },
+      { beltId: swcBelts[5].id, type: 'TIME_IN_RANK', description: 'Minimum 12 months at Blue Sash', value: 12, isRequired: true },
+      { beltId: swcBelts[5].id, type: 'MIN_AGE', description: 'Must be at least 16 years old', value: 16, isRequired: true },
+      { beltId: swcBelts[5].id, type: 'ESSAY', description: 'Essay on Wing Chun philosophy and personal growth', value: 1, isRequired: true },
+    ],
+  });
+  // Black Sash requirements
+  await prisma.beltRequirement.createMany({
+    data: [
+      { beltId: swcBelts[6].id, type: 'MIN_ATTENDANCE', description: 'Attend at least 300 classes total', value: 300, isRequired: true },
+      { beltId: swcBelts[6].id, type: 'TECHNIQUE', description: 'Muk Yan Jong complete form (all 8 sections)', value: 1, isRequired: true },
+      { beltId: swcBelts[6].id, type: 'TECHNIQUE', description: 'Baat Cham Dao (Butterfly Swords) form', value: 1, isRequired: true },
+      { beltId: swcBelts[6].id, type: 'TECHNIQUE', description: 'Luk Dim Boon Kwun (Long Pole) form', value: 1, isRequired: true },
+      { beltId: swcBelts[6].id, type: 'TIME_IN_RANK', description: 'Minimum 18 months at Brown Sash', value: 18, isRequired: true },
+      { beltId: swcBelts[6].id, type: 'MIN_AGE', description: 'Must be at least 18 years old', value: 18, isRequired: true },
+      { beltId: swcBelts[6].id, type: 'ESSAY', description: 'Comprehensive essay on Wing Chun mastery and teaching philosophy', value: 1, isRequired: true },
+    ],
+  });
+
+  console.log(`  ✅ SWC belts (7) with requirements seeded`);
+
+  // ─── BJJ Belts (Dragon MA) ────────────────────────
+  const bjjBeltData = [
+    { name: 'White Belt', displayOrder: 1, color: '#FFFFFF' },
+    { name: 'Blue Belt', displayOrder: 2, color: '#1E90FF' },
+    { name: 'Purple Belt', displayOrder: 3, color: '#800080' },
+    { name: 'Brown Belt', displayOrder: 4, color: '#8B4513' },
+    { name: 'Black Belt', displayOrder: 5, color: '#000000' },
+  ];
+  for (const bd of bjjBeltData) {
+    await prisma.belt.create({ data: { programId: bjjProgram.id, ...bd } });
+  }
+  console.log(`  ✅ BJJ belts (5) seeded`);
+
+  // ─── Sample Program Enrollments ───────────────────
+  // Enroll students in SWC at school1
+  const swcEnrollment1 = await prisma.programEnrollment.create({
+    data: {
+      studentId: students[0].id,
+      programId: swcProgram.id,
+      schoolId: school1.id,
+      currentBeltId: swcBelts[1].id, // Yellow Sash
+    },
+  });
+  await prisma.programEnrollment.create({
+    data: {
+      studentId: students[1].id,
+      programId: swcProgram.id,
+      schoolId: school1.id,
+      currentBeltId: swcBelts[0].id, // White Sash
+    },
+  });
+  // Enroll student at school2 in SWC
+  await prisma.programEnrollment.create({
+    data: {
+      studentId: students[3].id,
+      programId: swcProgram.id,
+      schoolId: school2.id,
+      currentBeltId: swcBelts[2].id, // Orange Sash
+    },
+  });
+
+  console.log(`  ✅ Sample program enrollments created`);
+
+  // ─── Sample promotion history ─────────────────────
+  await prisma.promotion.create({
+    data: {
+      programEnrollmentId: swcEnrollment1.id,
+      fromBeltId: swcBelts[0].id,
+      toBeltId: swcBelts[1].id,
+      promotedById: owner1.id,
+      notes: 'Excellent form. Siu Nim Tao mastered.',
+      promotedAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000), // 60 days ago
+    },
+  });
+
+  console.log(`  ✅ Sample promotion history created`);
+
   console.log('\n🎉 Seed complete!');
   console.log('\n📋 Login credentials:');
   console.log('   Super Admin: admin@flowapp.com / admin123');

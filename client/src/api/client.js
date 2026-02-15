@@ -239,3 +239,68 @@ export const billingApi = {
   runAutoInvoice: () =>
     request('/billing/auto-invoice/run', { method: 'POST' }),
 };
+
+// ─── Promotions / Belt System ────────────────────────────
+
+export const promotionApi = {
+  // Programs
+  getPrograms: (params) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return request(`/promotions/programs${query}`);
+  },
+  getProgram: (programId) => request(`/promotions/programs/${programId}`),
+  createProgram: (data) =>
+    request('/promotions/programs', { method: 'POST', body: JSON.stringify(data) }),
+  updateProgram: (programId, data) =>
+    request(`/promotions/programs/${programId}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+  // Belts
+  createBelt: (programId, data) =>
+    request(`/promotions/programs/${programId}/belts`, { method: 'POST', body: JSON.stringify(data) }),
+  updateBelt: (beltId, data) =>
+    request(`/promotions/belts/${beltId}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteBelt: (beltId) =>
+    request(`/promotions/belts/${beltId}`, { method: 'DELETE' }),
+
+  // Belt Requirements
+  createRequirement: (beltId, data) =>
+    request(`/promotions/belts/${beltId}/requirements`, { method: 'POST', body: JSON.stringify(data) }),
+  updateRequirement: (requirementId, data) =>
+    request(`/promotions/requirements/${requirementId}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteRequirement: (requirementId) =>
+    request(`/promotions/requirements/${requirementId}`, { method: 'DELETE' }),
+
+  // Program Enrollments
+  getEnrollments: (schoolId, params) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return request(`/promotions/enrollments/${schoolId}${query}`);
+  },
+  createEnrollment: (schoolId, data) =>
+    request(`/promotions/enrollments/${schoolId}`, { method: 'POST', body: JSON.stringify(data) }),
+
+  // Progress
+  getProgress: (enrollmentId) => request(`/promotions/progress/${enrollmentId}`),
+  updateProgress: (enrollmentId, data) =>
+    request(`/promotions/progress/${enrollmentId}`, { method: 'PATCH', body: JSON.stringify(data) }),
+
+  // Promotions
+  promoteStudent: (enrollmentId, data) =>
+    request(`/promotions/promote/${enrollmentId}`, { method: 'POST', body: JSON.stringify(data) }),
+
+  // Belt Tests
+  getTests: (schoolId, params) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return request(`/promotions/tests/${schoolId}${query}`);
+  },
+  createTest: (data) =>
+    request('/promotions/tests', { method: 'POST', body: JSON.stringify(data) }),
+  updateTest: (testId, data) =>
+    request(`/promotions/tests/${testId}`, { method: 'PATCH', body: JSON.stringify(data) }),
+
+  // Essays
+  submitEssay: (data) =>
+    request('/promotions/essays', { method: 'POST', body: JSON.stringify(data) }),
+  getEssays: (enrollmentId) => request(`/promotions/essays/${enrollmentId}`),
+  reviewEssay: (essayId, data) =>
+    request(`/promotions/essays/${essayId}/review`, { method: 'PATCH', body: JSON.stringify(data) }),
+};

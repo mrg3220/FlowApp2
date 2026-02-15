@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { sessionApi, classApi, schoolApi, metricsApi } from '../api/client';
+import { displayRole } from '../utils/displayRole';
 
 export default function DashboardPage() {
   const { user, isSuperAdmin, isOwner, isStaff, isStudent } = useAuth();
@@ -59,7 +60,7 @@ export default function DashboardPage() {
       <div className="page-header">
         <h1>Welcome, {user?.firstName}!</h1>
         <span className={`badge badge-${user?.role?.toLowerCase().replace('_', '-')}`}>
-          {user?.role?.replace('_', ' ')}
+          {displayRole(user?.role)}
         </span>
       </div>
 

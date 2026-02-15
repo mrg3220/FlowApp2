@@ -1,5 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { displayRole } from '../utils/displayRole';
 
 export default function Sidebar() {
   const { user, logout, isSuperAdmin, isOwner, isStaff } = useAuth();
@@ -47,6 +48,9 @@ export default function Sidebar() {
         <NavLink to="/metrics" className={({ isActive }) => (isActive ? 'active' : '')}>
           📈 Metrics
         </NavLink>
+        <NavLink to="/promotions" className={({ isActive }) => (isActive ? 'active' : '')}>
+          🥋 Promotions
+        </NavLink>
         <NavLink to="/billing" className={({ isActive }) => (isActive ? 'active' : '')}>
           💰 Billing
         </NavLink>
@@ -56,7 +60,7 @@ export default function Sidebar() {
       </nav>
       <div className="user-info">
         <div className="user-name">{user?.firstName} {user?.lastName}</div>
-        <div className="user-role">{user?.role?.replace('_', ' ')}</div>
+        <div className="user-role">{displayRole(user?.role)}</div>
         <button className="btn btn-outline btn-sm" style={{ marginTop: '0.5rem', width: '100%' }} onClick={handleLogout}>
           Logout
         </button>

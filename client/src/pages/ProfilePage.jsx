@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { profileApi } from '../api/client';
+import { displayRole } from '../utils/displayRole';
 
 export default function ProfilePage() {
   const { user } = useAuth();
@@ -102,7 +103,7 @@ export default function ProfilePage() {
               <div style={{ flex: 1 }}>
                 <h2>{profile.firstName} {profile.lastName}</h2>
                 <p style={{ color: 'var(--color-text-light)', marginBottom: '0.5rem' }}>
-                  <span className={`badge badge-${profile.role.toLowerCase()}`}>{profile.role}</span>
+                  <span className={`badge badge-${profile.role.toLowerCase()}`}>{displayRole(profile.role)}</span>
                   {profile.beltRank && <span className="badge badge-scheduled" style={{ marginLeft: '0.5rem' }}>{profile.beltRank}</span>}
                 </p>
                 <p style={{ fontSize: '0.9rem', color: 'var(--color-text-light)' }}>{profile.email}</p>

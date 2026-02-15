@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { schoolApi, userApi, enrollmentApi } from '../api/client';
+import { displayRole } from '../utils/displayRole';
 
 export default function SchoolsPage() {
   const { isSuperAdmin, isOwner } = useAuth();
@@ -279,7 +280,7 @@ export default function SchoolsPage() {
                         <tr key={s.id}>
                           <td>{s.firstName} {s.lastName}</td>
                           <td>{s.email}</td>
-                          <td><span className={`badge badge-${s.role.toLowerCase()}`}>{s.role}</span></td>
+                          <td><span className={`badge badge-${s.role.toLowerCase()}`}>{displayRole(s.role)}</span></td>
                         </tr>
                       ))}
                     </tbody>

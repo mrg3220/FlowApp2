@@ -16,6 +16,7 @@ const enrollmentRoutes = require('./routes/enrollments');
 const profileRoutes = require('./routes/profile');
 const metricsRoutes = require('./routes/metrics');
 const billingRoutes = require('./routes/billing');
+const promotionRoutes = require('./routes/promotions');
 
 const app = express();
 
@@ -39,6 +40,7 @@ app.use('/api/enrollments', enrollmentRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/metrics', metricsRoutes);
 app.use('/api/billing', billingRoutes);
+app.use('/api/promotions', promotionRoutes);
 
 // ─── 404 handler ─────────────────────────────────────────
 app.use((_req, res) => {

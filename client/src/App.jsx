@@ -13,6 +13,7 @@ import SchoolsPage from './pages/SchoolsPage';
 import ProfilePage from './pages/ProfilePage';
 import MetricsPage from './pages/MetricsPage';
 import BillingPage from './pages/BillingPage';
+import PromotionsPage from './pages/PromotionsPage';
 
 function AppLayout({ children }) {
   return (
@@ -91,6 +92,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <AppLayout><BillingPage /></AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/promotions"
+        element={
+          <ProtectedRoute>
+            <AppLayout><PromotionsPage /></AppLayout>
           </ProtectedRoute>
         }
       />
