@@ -57,6 +57,9 @@ export default function Sidebar() {
         <NavLink to="/notifications" className={({ isActive }) => (isActive ? 'active' : '')}>
           🔔 Notifications
         </NavLink>
+        <NavLink to="/families" className={({ isActive }) => (isActive ? 'active' : '')}>
+          👨‍👩‍👧‍👦 Families
+        </NavLink>
         <NavLink to="/profile" className={({ isActive }) => (isActive ? 'active' : '')}>
           👤 Profile
         </NavLink>

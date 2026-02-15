@@ -18,6 +18,7 @@ const metricsRoutes = require('./routes/metrics');
 const billingRoutes = require('./routes/billing');
 const promotionRoutes = require('./routes/promotions');
 const notificationRoutes = require('./routes/notifications');
+const familyRoutes = require('./routes/families');
 
 const app = express();
 
@@ -43,6 +44,7 @@ app.use('/api/metrics', metricsRoutes);
 app.use('/api/billing', billingRoutes);
 app.use('/api/promotions', promotionRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/families', familyRoutes);
 
 // ─── 404 handler ─────────────────────────────────────────
 app.use((_req, res) => {

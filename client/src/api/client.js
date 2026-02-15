@@ -343,3 +343,38 @@ export const notificationApi = {
   triggerJobs: (job) =>
     request('/notifications/trigger-jobs', { method: 'POST', body: JSON.stringify({ job }) }),
 };
+
+// ─── Families / Households ───────────────────────────────
+
+export const familyApi = {
+  // My families (any user)
+  getMine: () => request('/families/mine'),
+
+  // School families (staff)
+  getBySchool: (schoolId, params) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return request(`/families/school/${schoolId}${query}`);
+  },
+
+  // Single family
+  getById: (familyId) => request(`/families/${familyId}`),
+
+  // Create family
+  create: (schoolId, data) =>
+    request(`/families/school/${schoolId}`, { method: 'POST', body: JSON.stringify(data) }),
+
+  // Update family
+  update: (familyId, data) =>
+    request(`/families/${familyId}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+  // Combined billing
+  getBilling: (familyId) => request(`/families/${familyId}/billing`),
+
+  // Members
+  addMember: (familyId, userId, familyRole) =>
+    request(`/families/${familyId}/members`, { method: 'POST', body: JSON.stringify({ userId, familyRole }) }),
+  updateMember: (memberId, familyRole) =>
+    request(`/families/members/${memberId}`, { method: 'PATCH', body: JSON.stringify({ familyRole }) }),
+  removeMember: (memberId) =>
+    request(`/families/members/${memberId}`, { method: 'DELETE' }),
+};
