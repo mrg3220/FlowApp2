@@ -9,7 +9,7 @@
  */
 
 import { ScanCommand, BatchWriteCommand } from '@aws-sdk/lib-dynamodb';
-import { ddb, TABLE_NAME } from './dynamodb.js';
+import { ddb, TABLE_NAME } from './database.js';
 import { logger }          from './logger.js';
 
 const BATCH_SIZE      = 25;

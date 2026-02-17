@@ -26,39 +26,48 @@
 
 import { config } from './config.js';
 
-const ORG_ID = config.ORGANIZATION_ID;
-const PROG_ID = 'shaolin_wing_chun';
+/**
+ * models.js — Data model key factories for single-table DynamoDB design.
+ *
+ * Following FlowApp convention: models.py → models.js
+ * Each factory accepts explicit IDs for testability and reuse.
+ */
+
+export const ORG_ID  = config.ORGANIZATION_ID;
+export const PROG_ID = 'shaolin_wing_chun';
 
 // ───────────────────── Key Factories ─────────────────────
 
 export const keys = {
-  program: () => ({
-    PK:     `ORG#${ORG_ID}`,
-    SK:     `PROG#${PROG_ID}`,
-    GSI1PK: `PROG#${PROG_ID}`,
+  /** @param {string} orgId  @param {string} progId */
+  program: (orgId, progId) => ({
+    PK:     `ORG#${orgId}`,
+    SK:     `PROG#${progId}`,
+    GSI1PK: `PROG#${progId}`,
     GSI1SK: '#META',
   }),
 
-  belt: (level) => ({
-    PK:     `PROG#${PROG_ID}`,
+  /** @param {string} progId  @param {number} level */
+  belt: (progId, level) => ({
+    PK:     `PROG#${progId}`,
     SK:     `BELT#${String(level).padStart(2, '0')}`,
-    GSI1PK: `PROG#${PROG_ID}`,
+    GSI1PK: `PROG#${progId}`,
     GSI1SK: `BELT#${String(level).padStart(2, '0')}`,
   }),
 
-  requirement: (level, ageCategory) => ({
-    PK:     `PROG#${PROG_ID}#BELT#${String(level).padStart(2, '0')}`,
+  /** @param {string} progId  @param {number} level  @param {string} ageCategory */
+  requirement: (progId, level, ageCategory) => ({
+    PK:     `PROG#${progId}#BELT#${String(level).padStart(2, '0')}`,
     SK:     `REQ#${ageCategory}`,
-    GSI1PK: `PROG#${PROG_ID}`,
+    GSI1PK: `PROG#${progId}`,
     GSI1SK: `REQ#${ageCategory}#${String(level).padStart(2, '0')}`,
   }),
 
-  curriculum: (category, id, minBeltLevel) => ({
-    PK:     `PROG#${PROG_ID}`,
+  /** @param {string} progId  @param {string} category  @param {string} id */
+  curriculum: (progId, category, id) => ({
+    PK:     `PROG#${progId}`,
     SK:     `CURR#${category}#${id}`,
-    GSI1PK: `PROG#${PROG_ID}`,
-    GSI1SK: `CURR#${String(minBeltLevel).padStart(2, '0')}#${id}`,
+    GSI1PK: `PROG#${progId}`,
+    GSI1SK: `CURR#${category}#${id}`,
   }),
 };
-
-export { ORG_ID, PROG_ID };

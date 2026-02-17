@@ -131,13 +131,14 @@ wing-chun/
 ├── src/
 │   ├── config.js         # Zod-validated env config
 │   ├── data.js           # Pure data (belts, reqs, curriculum)
-│   ├── dynamodb.js       # SDK v3 DocumentClient singleton
-│   ├── keys.js           # Single-table key factories
+│   ├── database.js       # SDK v3 DocumentClient singleton
 │   ├── logger.js         # Structured JSON logger
+│   ├── models.js         # Single-table key factories
 │   ├── query.js          # High-level query helpers + CLI
+│   ├── schemas.js        # Zod validation schemas
 │   ├── seed.js           # BatchWriteItem seeder
 │   ├── teardown.js       # Scan-and-delete cleanup
-│   └── validate.js       # Zod data integrity checks
+│   └── validate.js       # Data integrity checks
 └── terraform/
     ├── main.tf           # DynamoDB table + GSI1
     ├── outputs.tf        # Table ARN, name, stream ARN

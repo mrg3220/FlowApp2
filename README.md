@@ -1,329 +1,100 @@
-# 🥋 FlowApp — Martial Arts Studio Management
+# 🥋 FlowApp — Enterprise Martial Arts Studio Management
 
-A web application for managing martial arts studio classes, scheduling sessions, and tracking student attendance with multiple check-in methods.
+A comprehensive web application for managing martial arts organizations with multi-school support, belt promotions, billing, events, and more.
 
 ## Features
 
-- **Class Management** — Create and manage classes with discipline, skill level, capacity, and instructor assignment
-- **Session Scheduling** — Create class sessions with date/time, track session status (Scheduled → In Progress → Completed)
-- **Check-In System** — Three check-in methods:
-  - **Admin Check-In** — Staff manually checks in students
-  - **Self-Service Kiosk** — Students check in at a tablet using their email
-  - **QR Code** — Students scan a session QR code (logged-in students)
-- **Attendance Tracking** — Real-time attendance counts, capacity management, and detailed attendance reports
-- **Role-Based Access** — Owner, Instructor, and Student roles with appropriate permissions
-- **Responsive Dashboard** — See today's sessions, attendance stats, and active classes at a glance
+### Core Operations
+- **Multi-School Management** — Support for multiple schools under one organization, each with their own branding
+- **Class Management** — Create and manage classes with program/discipline, skill level, capacity, and instructor assignment
+- **Recurring Schedules** — Set weekly recurring class schedules (e.g., Mon/Wed/Fri 6-7 PM) with automatic session generation
+- **Session Management** — Individual class sessions with date/time, status tracking, and QR codes
+- **Calendar View** — Monthly calendar showing all sessions, events, and scheduled classes
+
+### Check-In System
+- **Admin Check-In** — Staff manually checks in students
+- **Self-Service Kiosk** — Students check in at a tablet using their email
+- **QR Code** — Students scan a session QR code (logged-in students)
+- **Attendance Tracking** — Real-time attendance counts, capacity management, and detailed reports
+
+### Belt Promotion System
+- **Programs & Belts** — Define martial arts programs with customizable belt/rank structures
+- **Requirements** — Set promotion requirements (attendance, time in rank, techniques, essays)
+- **Progress Tracking** — Track student progress toward next belt
+- **Belt Tests** — Schedule and manage belt testing events
+- **Certificates** — Generate promotion certificates with customizable templates
+
+### Billing & Payments
+- **Membership Plans** — Create flexible plans (monthly, quarterly, annual, class credits)
+- **Invoices** — Generate and track invoices with tax calculation
+- **Payments** — Record payments (card, cash, check, bank transfer)
+- **Subscriptions** — Manage recurring student subscriptions
+- **Payment Gateway Integration** — Support for Stripe and Square
+
+### Events System
+- **Event Types** — Tournaments, seminars, parties, ceremonies, workshops
+- **Venue Management** — Track venues with capacity and contact info
+- **Ticket Sales** — Sell event tickets with guest checkout support
+- **Tournament Entries** — Track competitors, weight classes, divisions, and medals
+- **Registration** — Event registration with waitlist support
+
+### Additional Features
+- **Lead Management (CRM)** — Track prospects from initial contact to conversion
+- **Family Accounts** — Group family members under one household
+- **Digital Waivers** — Create waiver templates and collect digital signatures
+- **Retail/Inventory** — Manage products, inventory, and orders
+- **Curriculum Library** — Store techniques with videos and descriptions
+- **Training Plans** — Create and assign workout plans
+- **Instructor Payroll** — Track hours and calculate instructor pay
+- **Virtual Content** — Host online training videos by belt level
+- **Notifications** — Email, SMS, and in-app notifications with templates
+- **Branding** — Organization and per-school branding customization
+- **Certifications** — Instructor title application and review process
+- **Help System** — Role-based help articles and onboarding
+- **Audit Logging** — Track all administrative actions
+
+### Role-Based Access Control
+
+| Role | Description |
+|------|-------------|
+| **Super Admin** | Full system access, manages all schools |
+| **Owner** | Manages their school(s), staff, and settings |
+| **Instructor** | Manages classes, sessions, and check-ins |
+| **Student** | Views schedule, checks in, tracks progress |
+| **Event Coordinator** | Manages events and tournaments |
+| **Marketing** | Access to leads and promotions |
+| **School Staff** | Limited administrative access |
+| **IT Admin** | System settings and user management |
 
 ## Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | React 18 + Vite |
-| Backend | Node.js + Express |
-| Database | PostgreSQL |
+| Frontend | React 18 + Vite 5 |
+| Backend | Node.js 20 + Express 4.21 |
+| Database | PostgreSQL 16 |
 | ORM | Prisma |
 | Auth | JWT (JSON Web Tokens) |
 | Styling | Custom CSS (no framework) |
+| Containerization | Docker + Docker Compose |
 
 ## Prerequisites
 
-- **Node.js** 18+ ([download](https://nodejs.org/))
-- **PostgreSQL** 14+ ([download](https://www.postgresql.org/download/))
-- **npm** (comes with Node.js)
+### Docker (Recommended)
+- **Docker Desktop** ([download](https://www.docker.com/products/docker-desktop/))
 
-## Getting Started
+### Local Development
+- **Node.js** 20+ ([download](https://nodejs.org/))
+- **PostgreSQL** 16+ ([download](https://www.postgresql.org/download/))
 
-### 1. Clone and Install
-
-```bash
-git clone <your-repo-url>
-cd FlowApp2
-
-# Install server dependencies
-cd server
-npm install
-
-# Install client dependencies
-cd ../client
-npm install
-```
-
-### 2. Database Setup
-
-Create a PostgreSQL database:
-
-```sql
-CREATE DATABASE flowapp;
-```
-
-### 3. Environment Configuration
-
-```bash
-cd server
-cp .env.example .env
-```
-
-Edit `server/.env` with your database credentials:
-
-```env
-DATABASE_URL="postgresql://postgres:yourpassword@localhost:5432/flowapp?schema=public"
-JWT_SECRET="generate-a-strong-random-secret-here"
-```
-
-### 4. Run Database Migrations
-
-```bash
-cd server
-npx prisma migrate dev --name init
-```
-
-### 5. Seed Sample Data (Optional)
-
-```bash
-cd server
-npm run db:seed
-```
-
-This creates sample accounts you can use to test:
-
-| Role | Email | Password |
-|------|-------|----------|
-| Owner | owner@flowapp.com | owner123 |
-| Instructor | sensei.mike@flowapp.com | instructor123 |
-| Instructor | coach.sarah@flowapp.com | instructor123 |
-| Student | alex@example.com | student123 |
-
-### 6. Start Development Servers
-
-**Terminal 1 — API Server:**
-```bash
-cd server
-npm run dev
-```
-Server runs at `http://localhost:3001`
-
-**Terminal 2 — React Frontend:**
-```bash
-cd client
-npm run dev
-```
-Frontend runs at `http://localhost:3000`
-
-## Project Structure
-
-```
-FlowApp2/
-├── docs/
-│   └── database-diagram.md          # Mermaid ER diagram
-├── server/                           # Express API
-│   ├── prisma/
-│   │   ├── schema.prisma            # Database schema
-│   │   └── seed.js                  # Seed data
-│   ├── src/
-│   │   ├── index.js                 # Express app entry
-│   │   ├── config/                  # App config & DB client
-│   │   ├── middleware/              # Auth, validation, error handling
-│   │   ├── controllers/            # Route handlers
-│   │   └── routes/                 # API routes
-│   └── .env.example
-├── client/                           # React frontend
-│   ├── src/
-│   │   ├── App.jsx                  # Routes & layout
-│   │   ├── main.jsx                 # Entry point
-│   │   ├── api/client.js           # API client
-│   │   ├── context/AuthContext.jsx  # Auth state
-│   │   ├── components/             # Shared components
-│   │   ├── pages/                  # Page components
-│   │   └── styles/                 # CSS
-│   └── vite.config.js
-├── .gitignore
-└── README.md
-```
-
-## API Endpoints
-
-### Auth
-| Method | Endpoint | Description |
-|--------|---------|-------------|
-| POST | `/api/auth/register` | Register a new user |
-| POST | `/api/auth/login` | Login, get JWT token |
-| GET | `/api/auth/me` | Get current user |
-
-### Classes
-| Method | Endpoint | Description |
-|--------|---------|-------------|
-| GET | `/api/classes` | List all active classes |
-| GET | `/api/classes/:id` | Get class details |
-| POST | `/api/classes` | Create a class (staff only) |
-| PUT | `/api/classes/:id` | Update a class (staff only) |
-| DELETE | `/api/classes/:id` | Deactivate a class (owner only) |
-
-### Sessions
-| Method | Endpoint | Description |
-|--------|---------|-------------|
-| GET | `/api/sessions` | List sessions (filterable) |
-| GET | `/api/sessions/:id` | Get session with attendance |
-| POST | `/api/sessions` | Create a session (staff only) |
-| PATCH | `/api/sessions/:id/status` | Update session status |
-| GET | `/api/sessions/:id/qr` | Get session QR data |
-
-### Check-Ins
-| Method | Endpoint | Description |
-|--------|---------|-------------|
-| POST | `/api/checkins` | Admin check-in student |
-| POST | `/api/checkins/qr` | QR code check-in |
-| POST | `/api/checkins/kiosk` | Kiosk self-check-in |
-| DELETE | `/api/checkins/:id` | Remove check-in |
-| GET | `/api/checkins/attendance/:sessionId` | Attendance report |
-
-### Users
-| Method | Endpoint | Description |
-|--------|---------|-------------|
-| GET | `/api/users` | List users (staff only) |
-| GET | `/api/users/:id` | Get user details |
-| PUT | `/api/users/:id` | Update user (owner only) |
-
-## Architecture Summary
-
-### System Architecture
-
-```
-┌──────────────────────────────────────────────────────────────┐
-│                      Docker Desktop                          │
-│                                                              │
-│  ┌─────────────┐   ┌─────────────────┐   ┌──────────────┐  │
-│  │   Client     │   │     Server      │   │  PostgreSQL   │  │
-│  │  (React +    │──▶│  (Node.js +     │──▶│   Database    │  │
-│  │   Nginx)     │   │   Express)      │   │              │  │
-│  │  Port 3000   │   │  Port 3001      │   │  Port 5432   │  │
-│  └─────────────┘   └─────────────────┘   └──────────────┘  │
-│                                                              │
-└──────────────────────────────────────────────────────────────┘
-```
-
-### Database Schema (ER Diagram)
-
-```mermaid
-erDiagram
-    USERS {
-        uuid id PK
-        varchar email UK
-        varchar password_hash
-        varchar first_name
-        varchar last_name
-        varchar phone
-        enum role "OWNER | INSTRUCTOR | STUDENT"
-        timestamp created_at
-        timestamp updated_at
-    }
-
-    CLASSES {
-        uuid id PK
-        varchar name
-        varchar discipline
-        enum skill_level "BEGINNER | INTERMEDIATE | ADVANCED | ALL_LEVELS"
-        int capacity
-        varchar description
-        uuid instructor_id FK
-        boolean is_active
-        timestamp created_at
-        timestamp updated_at
-    }
-
-    CLASS_SCHEDULES {
-        uuid id PK
-        uuid class_id FK
-        enum day_of_week "MON-SUN"
-        time start_time
-        time end_time
-        date effective_from
-        date effective_until
-        timestamp created_at
-    }
-
-    CLASS_SESSIONS {
-        uuid id PK
-        uuid class_id FK
-        uuid schedule_id FK
-        date session_date
-        time start_time
-        time end_time
-        enum status "SCHEDULED | IN_PROGRESS | COMPLETED | CANCELLED"
-        varchar qr_code UK
-        timestamp created_at
-        timestamp updated_at
-    }
-
-    CHECK_INS {
-        uuid id PK
-        uuid session_id FK
-        uuid student_id FK
-        enum method "ADMIN | KIOSK | QR_CODE"
-        uuid checked_in_by FK
-        timestamp checked_in_at
-    }
-
-    USERS ||--o{ CLASSES : "instructs"
-    CLASSES ||--o{ CLASS_SCHEDULES : "has schedule"
-    CLASSES ||--o{ CLASS_SESSIONS : "has sessions"
-    CLASS_SCHEDULES ||--o{ CLASS_SESSIONS : "generates"
-    CLASS_SESSIONS ||--o{ CHECK_INS : "has attendance"
-    USERS ||--o{ CHECK_INS : "checks in"
-```
-
-### 5 Tables — Design Rationale
-
-| Table | Purpose | Key Design Decisions |
-|-------|---------|---------------------|
-| **USERS** | All system users | Single table with `role` enum for RBAC — avoids join complexity for auth |
-| **CLASSES** | Class templates | Soft-delete via `is_active` flag — preserves historical data |
-| **CLASS_SCHEDULES** | Recurring patterns | Separate from classes to support multiple schedules per class (Mon+Wed+Fri) |
-| **CLASS_SESSIONS** | Individual occurrences | Each session gets a unique `qr_code` for QR check-in; can exist without a schedule (ad-hoc sessions) |
-| **CHECK_INS** | Attendance records | Unique constraint on `(session_id, student_id)` prevents duplicates; `method` tracks how student checked in |
-
-### 3 Check-In Flows
-
-| Flow | Auth Required | How It Works |
-|------|:------------:|--------------|
-| **Admin** | Yes (Staff JWT) | Staff selects session + student → `POST /api/checkins` |
-| **Kiosk** | No | Student enters email at tablet → `POST /api/checkins/kiosk` |
-| **QR Code** | Yes (Student JWT) | Student scans session QR → `POST /api/checkins/qr` auto-fills student from token |
-
-### Role-Based Access Control
-
-| Capability | Owner | Instructor | Student |
-|-----------|:-----:|:----------:|:-------:|
-| View dashboard & classes | ✅ | ✅ | ✅ |
-| Create/edit classes | ✅ | ✅ (own) | ❌ |
-| Delete (deactivate) classes | ✅ | ❌ | ❌ |
-| Create/manage sessions | ✅ | ✅ | ❌ |
-| Admin check-in students | ✅ | ✅ | ❌ |
-| View attendance reports | ✅ | ✅ | ❌ |
-| QR code self-check-in | ❌ | ❌ | ✅ |
-| Manage user roles | ✅ | ❌ | ❌ |
-
-### Frontend Pages
-
-| Page | Route | Description |
-|------|-------|-------------|
-| Login | `/login` | Email/password authentication |
-| Register | `/register` | Student self-registration |
-| Dashboard | `/dashboard` | Today's sessions, stats, active classes |
-| Classes | `/classes` | CRUD management with modal forms |
-| Sessions | `/sessions` | Create sessions, manage status, view attendance |
-| Check In | `/checkin` | Admin manual check-in with student search |
-| Kiosk | `/kiosk` | Full-screen tablet-friendly self-service |
-
-## Docker Deployment
-
-### Quick Start with Docker
+## Quick Start with Docker
 
 ```bash
 # Clone the repo
-git clone <your-repo-url>
+git clone https://github.com/mrg3220/FlowApp2.git
 cd FlowApp2
 
-# Start all services (PostgreSQL + Server + Client)
+# Start all services
 docker compose up --build
 
 # Seed the database (first time only)
@@ -338,27 +109,268 @@ Open `http://localhost:3000` and login with `owner@flowapp.com` / `owner123`.
 |---------|-------|------|-------------|
 | `db` | PostgreSQL 16 Alpine | 5432 | Database with persistent volume |
 | `server` | Node.js 20 Alpine | 3001 | Express API with Prisma ORM |
-| `client` | Nginx Alpine | 3000 | React SPA served via Nginx, proxies `/api` to server |
+| `client` | Nginx Alpine | 3000 | React SPA served via Nginx |
 
-### Useful Docker Commands
+### Docker Commands
 
 ```bash
-# Start in background
-docker compose up -d --build
-
-# View logs
-docker compose logs -f
-
-# Stop all services
-docker compose down
-
-# Reset database (destroy volume)
-docker compose down -v
+docker compose up -d --build     # Start in background
+docker compose logs -f           # View logs
+docker compose down              # Stop all services
+docker compose down -v           # Reset database (destroy volume)
 ```
 
-## Database Diagram
+## Local Development Setup
 
-See [docs/database-diagram.md](docs/database-diagram.md) for the full Mermaid ER diagram.
+### 1. Clone and Install
+
+```bash
+git clone https://github.com/mrg3220/FlowApp2.git
+cd FlowApp2
+
+# Install server dependencies
+cd server && npm install
+
+# Install client dependencies
+cd ../client && npm install
+```
+
+### 2. Database Setup
+
+```sql
+CREATE DATABASE flowapp;
+```
+
+### 3. Environment Configuration
+
+```bash
+cd server
+cp .env.example .env
+```
+
+Edit `server/.env`:
+
+```env
+DATABASE_URL="postgresql://postgres:yourpassword@localhost:5432/flowapp?schema=public"
+JWT_SECRET="generate-a-strong-random-secret-here"
+```
+
+### 4. Run Migrations
+
+```bash
+cd server
+npx prisma migrate dev
+```
+
+### 5. Seed Sample Data
+
+```bash
+npm run db:seed
+```
+
+| Role | Email | Password |
+|------|-------|----------|
+| Owner | owner@flowapp.com | owner123 |
+| Instructor | sensei.mike@flowapp.com | instructor123 |
+| Student | alex@example.com | student123 |
+
+### 6. Start Development Servers
+
+```bash
+# Terminal 1 — API Server
+cd server && npm run dev    # http://localhost:3001
+
+# Terminal 2 — Frontend
+cd client && npm run dev    # http://localhost:3000
+```
+
+## Project Structure
+
+```
+FlowApp2/
+├── client/                           # React frontend
+│   ├── src/
+│   │   ├── api/client.js            # API client
+│   │   ├── context/AuthContext.jsx  # Auth state
+│   │   ├── pages/                   # Page components
+│   │   └── styles/                  # CSS
+│   ├── nginx.conf                   # Production config
+│   └── Dockerfile
+├── server/                           # Express API
+│   ├── prisma/
+│   │   ├── schema.prisma            # Database schema (50+ models)
+│   │   └── seed.js                  # Seed data
+│   ├── src/
+│   │   ├── controllers/             # Route handlers
+│   │   ├── middleware/              # Auth, validation
+│   │   └── routes/                  # API routes
+│   └── Dockerfile
+├── docker-compose.yml
+└── README.md
+```
+
+## Database Schema
+
+### Core Models (50+)
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         ORGANIZATION                                 │
+├─────────────────────────────────────────────────────────────────────┤
+│  User, School, Family, FamilyMember, Enrollment                     │
+│  OrgBranding, SchoolBranding                                        │
+└─────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                      CLASS MANAGEMENT                                │
+├─────────────────────────────────────────────────────────────────────┤
+│  Class, ClassSchedule, ClassSession, CheckIn                        │
+└─────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                     BELT PROMOTIONS                                  │
+├─────────────────────────────────────────────────────────────────────┤
+│  Program, Belt, BeltRequirement, ProgramEnrollment                  │
+│  RequirementProgress, Promotion, BeltTest, EssaySubmission          │
+│  CertificateTemplate, Certificate                                   │
+└─────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                         BILLING                                      │
+├─────────────────────────────────────────────────────────────────────┤
+│  PaymentConfig, MembershipPlan, Invoice, Payment, Subscription      │
+└─────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                          EVENTS                                      │
+├─────────────────────────────────────────────────────────────────────┤
+│  Venue, Event, EventTicket, EventRegistration, TournamentEntry      │
+└─────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                       ADDITIONAL                                     │
+├─────────────────────────────────────────────────────────────────────┤
+│  Lead, LeadActivity (CRM)                                           │
+│  WaiverTemplate, Waiver (Digital Waivers)                           │
+│  Product, Inventory, Order, OrderItem (Retail)                      │
+│  CurriculumItem (Technique Library)                                 │
+│  TrainingPlan, TrainingPlanExercise, TrainingPlanAssignment         │
+│  PayrollEntry (Instructor Payroll)                                  │
+│  VirtualContent, VideoView (Online Classes)                         │
+│  NotificationTemplate, Notification, NotificationPreference         │
+│  CertificationApplication (Title Applications)                      │
+│  HelpArticle, OnboardingProgress (Help System)                      │
+│  AuditLog, SystemSetting (IT Administration)                        │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Key Relationships
+
+```mermaid
+erDiagram
+    School ||--o{ Class : has
+    School ||--o{ Enrollment : enrolls
+    School ||--o{ Event : hosts
+    
+    Class ||--o{ ClassSchedule : "scheduled on"
+    Class ||--o{ ClassSession : "has sessions"
+    ClassSchedule ||--o{ ClassSession : generates
+    ClassSession ||--o{ CheckIn : "tracks attendance"
+    
+    User ||--o{ Enrollment : "enrolled at"
+    User ||--o{ CheckIn : "checks into"
+    User ||--o{ ProgramEnrollment : "enrolled in"
+    
+    Program ||--o{ Belt : "has ranks"
+    Belt ||--o{ BeltRequirement : "requires"
+    ProgramEnrollment ||--o{ Promotion : "promoted through"
+    
+    MembershipPlan ||--o{ Subscription : "subscribed to"
+    Invoice ||--o{ Payment : "paid by"
+```
+
+## API Endpoints
+
+### Authentication
+| Method | Endpoint | Description |
+|--------|---------|-------------|
+| POST | `/api/auth/register` | Register user |
+| POST | `/api/auth/login` | Login, get JWT |
+| GET | `/api/auth/me` | Current user |
+
+### Classes & Sessions
+| Method | Endpoint | Description |
+|--------|---------|-------------|
+| GET | `/api/classes` | List classes |
+| POST | `/api/classes` | Create class |
+| POST | `/api/classes/:id/schedules` | Add recurring schedule |
+| GET | `/api/sessions` | List sessions |
+| POST | `/api/sessions` | Create session |
+| PATCH | `/api/sessions/:id/status` | Update status |
+
+### Check-Ins
+| Method | Endpoint | Description |
+|--------|---------|-------------|
+| POST | `/api/checkins` | Admin check-in |
+| POST | `/api/checkins/kiosk` | Kiosk self-check-in |
+| POST | `/api/checkins/qr` | QR code check-in |
+
+### Billing
+| Method | Endpoint | Description |
+|--------|---------|-------------|
+| GET | `/api/billing/summary/:schoolId` | Billing dashboard |
+| POST | `/api/billing/plans` | Create membership plan |
+| POST | `/api/billing/invoices` | Create invoice |
+| POST | `/api/billing/payments` | Record payment |
+
+### Promotions
+| Method | Endpoint | Description |
+|--------|---------|-------------|
+| GET | `/api/promotions/programs` | List programs |
+| POST | `/api/promotions/promote/:enrollmentId` | Promote student |
+| POST | `/api/promotions/tests` | Schedule belt test |
+
+### Events
+| Method | Endpoint | Description |
+|--------|---------|-------------|
+| GET | `/api/events` | List events |
+| POST | `/api/events` | Create event |
+| POST | `/api/events/:id/tickets` | Purchase ticket |
+| POST | `/api/events/:id/register` | Register for event |
+
+## Frontend Pages
+
+| Page | Route | Description |
+|------|-------|-------------|
+| Dashboard | `/dashboard` | Today's sessions, stats, calendar preview |
+| Classes | `/classes` | Manage classes and schedules |
+| Sessions | `/sessions` | View/create sessions, grouped by program |
+| Calendar | `/calendar` | Monthly view of all events |
+| Check In | `/checkin` | Admin check-in interface |
+| Kiosk | `/kiosk` | Full-screen tablet kiosk |
+| Billing | `/billing` | Plans, invoices, payments |
+| Promotions | `/promotions` | Belt programs and progress |
+| Events | `/events` | Event management |
+| Schools | `/schools` | Multi-school management |
+| Users | `/users` | User administration |
+| Branding | `/branding` | School branding settings |
+| Certificates | `/certificates` | Generated certificates |
+
+## Architecture
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                      Docker Desktop                          │
+│                                                              │
+│  ┌─────────────┐   ┌─────────────────┐   ┌──────────────┐  │
+│  │   Client    │   │     Server      │   │  PostgreSQL  │  │
+│  │  (React +   │──▶│  (Node.js +     │──▶│   Database   │  │
+│  │   Nginx)    │   │   Express)      │   │              │  │
+│  │  Port 3000  │   │  Port 3001      │   │  Port 5432   │  │
+│  └─────────────┘   └─────────────────┘   └──────────────┘  │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```
 
 ## License
 

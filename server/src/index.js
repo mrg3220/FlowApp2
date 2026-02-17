@@ -47,6 +47,7 @@ const brandingRoutes = require('./routes/branding');
 const helpRoutes = require('./routes/help');
 const publicRoutes = require('./routes/public');
 const virtualRoutes = require('./routes/virtual');
+const competitionRoutes = require('./routes/competitions');
 const adminRoutes = require('./routes/admin');
 const sreRoutes = require('./routes/sre');
 const { requestMetricsMiddleware } = require('./middleware/requestMetrics');
@@ -169,6 +170,7 @@ app.use('/api/certifications', certificationRoutes);
 app.use('/api/branding', brandingRoutes);
 app.use('/api/help', helpRoutes);
 app.use('/api/virtual', virtualRoutes);
+app.use('/api/competitions', competitionRoutes);
 
 // IT Admin & SRE routes — restricted to SUPER_ADMIN and IT_ADMIN
 app.use('/api/admin', adminRoutes);

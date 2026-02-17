@@ -7,54 +7,9 @@
  *   or:  npm run validate
  */
 
-import { z } from 'zod';
-import { BELTS, REQUIREMENTS, CURRICULUM, AGE_CATEGORIES } from './data.js';
+import { BELTS, REQUIREMENTS, CURRICULUM } from './data.js';
+import { BeltSchema, RequirementSchema, CurriculumSchema } from './schemas.js';
 import { logger } from './logger.js';
-
-// ── Zod Schemas ──────────────────────────────────────────
-
-const BeltSchema = z.object({
-  level:     z.number().int().min(1).max(10),
-  name:      z.string().min(1),
-  code:      z.string().regex(/^LV\d{1,2}$/),
-  color:     z.string().regex(/^#[0-9A-Fa-f]{6}$/),
-  desc:      z.string().min(1),
-  monthsMin: z.number().int().min(1),
-  monthsMax: z.number().int().min(1),
-}).refine((b) => b.monthsMax >= b.monthsMin, {
-  message: 'monthsMax must be >= monthsMin',
-});
-
-const ageCatEnum = z.enum(AGE_CATEGORIES);
-
-const ageMap = (valSchema) =>
-  z.object(Object.fromEntries(AGE_CATEGORIES.map((a) => [a, valSchema])));
-
-const RequirementSchema = z.object({
-  techniques:    z.array(z.string().min(1)).min(1),
-  attendance:    ageMap(z.number().int().min(0)),
-  timeInRank:    ageMap(z.number().int().min(0)),
-  teachingHours: ageMap(z.number().int().min(0)),
-  sparring:      z.boolean(),
-  sparringMin:   ageMap(z.number().int().min(0)),
-  weapons:       z.boolean(),
-  weaponsSkill:  z.string(),
-  tournament:    z.number().int().min(0),
-  curriculumDev: z.boolean(),
-  essay:         z.boolean(),
-  essayPrompt:   ageMap(z.string().min(1)),
-});
-
-const CurriculumSchema = z.object({
-  id:         z.string().min(1),
-  name:       z.string().min(1),
-  category:   z.string().min(1),
-  technique:  z.string().min(1),
-  difficulty: z.enum(['Beginner', 'Intermediate', 'Advanced']),
-  minLevel:   z.number().int().min(1).max(10),
-  ages:       z.array(ageCatEnum).min(1),
-  desc:       z.string().min(1),
-});
 
 // ── Validation Runner ────────────────────────────────────
 

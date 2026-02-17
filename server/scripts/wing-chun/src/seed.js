@@ -7,8 +7,8 @@
  */
 
 import { BatchWriteCommand } from '@aws-sdk/lib-dynamodb';
-import { ddb, TABLE_NAME }   from './dynamodb.js';
-import { keys, ORG_ID, PROG_ID } from './keys.js';
+import { ddb, TABLE_NAME }   from './database.js';
+import { keys, ORG_ID, PROG_ID } from './models.js';
 import { BELTS, REQUIREMENTS, CURRICULUM, AGE_CATEGORIES } from './data.js';
 import { logger } from './logger.js';
 

@@ -306,6 +306,8 @@ model User {
   // Certifications
   certApplications       CertificationApplication[] @relation("UserCertApps")
   reviewedApplications   CertificationApplication[] @relation("AppReviewer")
+  // Competitions
+  competitionEntries     CompetitionEntry[]         @relation("UserCompetitionEntries")
   // Help
   onboardingProgress     OnboardingProgress[]       @relation("UserOnboarding")
   // F17 Virtual
@@ -368,6 +370,8 @@ model School {
   // Events
   events             Event[]          @relation("SchoolEvents")
   venues             Venue[]          @relation("SchoolVenues")
+  // Competitions
+  competitions       Competition[]    @relation("SchoolCompetitions")
   // Branding
   branding           SchoolBranding?  @relation("SchoolBranding")
   // F17 Virtual
@@ -1237,6 +1241,45 @@ model TournamentEntry {
 
   @@unique([eventId, userId])
   @@map("tournament_entries")
+}
+
+// ═══════════════════════════════════════════════════════════
+// COMPETITIONS
+// ═══════════════════════════════════════════════════════════
+
+model Competition {
+  id          String    @id @default(uuid())
+  name        String
+  description String?
+  location    String?
+  eventDate   DateTime  @map("event_date")
+  schoolId    String?   @map("school_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  school  School?            @relation("SchoolCompetitions", fields: [schoolId], references: [id])
+  entries CompetitionEntry[]
+
+  @@map("competitions")
+}
+
+model CompetitionEntry {
+  id            String    @id @default(uuid())
+  competitionId String    @map("competition_id")
+  studentId     String    @map("student_id")
+  division      String?
+  weightClass   String?   @map("weight_class")
+  placement     Int?
+  medal         MedalType @default(NONE)
+  notes         String?
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  competition Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  student     User        @relation("UserCompetitionEntries", fields: [studentId], references: [id])
+
+  @@unique([competitionId, studentId])
+  @@map("competition_entries")
 }
 
 // ═══════════════════════════════════════════════════════════
