@@ -4,7 +4,9 @@ import { brandingApi, schoolApi } from '../api/client';
 
 export default function BrandingPage() {
   const { user, isSuperAdmin, isMarketing, isOwner } = useAuth();
-  const [tab, setTab] = useState(isSuperAdmin || isMarketing ? 'org' : 'school');
+  const canEditOrg = isSuperAdmin || isMarketing;
+  const canEditSchool = isSuperAdmin || isOwner;
+  const [tab, setTab] = useState(canEditOrg ? 'org' : 'school');
   const [orgBranding, setOrgBranding] = useState(null);
   const [schoolBranding, setSchoolBranding] = useState(null);
   const [schools, setSchools] = useState([]);
@@ -15,10 +17,22 @@ export default function BrandingPage() {
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
-    if (isSuperAdmin || isMarketing) loadOrgBranding();
-    if (isSuperAdmin) loadSchools();
-    if (selectedSchoolId) loadSchoolBranding(selectedSchoolId);
+    if (canEditOrg) loadOrgBranding();
+    if (isSuperAdmin) {
+      loadSchools();
+    } else if (isOwner && user?.schoolId) {
+      // Owners see only their school
+      setSelectedSchoolId(user.schoolId);
+      loadSchoolBranding(user.schoolId);
+    }
   }, []);
+
+  useEffect(() => {
+    // Load school branding when selection changes (for super admin)
+    if (selectedSchoolId && isSuperAdmin) {
+      loadSchoolBranding(selectedSchoolId);
+    }
+  }, [selectedSchoolId]);
 
   const loadOrgBranding = async () => {
     try { setOrgBranding(await brandingApi.getOrg()); } catch (e) { setError(e.message); }
@@ -85,8 +99,8 @@ export default function BrandingPage() {
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
-        {(isSuperAdmin || isMarketing) && <button className={`btn ${tab === 'org' ? '' : 'btn-outline'}`} onClick={() => { setTab('org'); setEditing(false); }}>Organization</button>}
-        <button className={`btn ${tab === 'school' ? '' : 'btn-outline'}`} onClick={() => { setTab('school'); setEditing(false); }}>School</button>
+        {canEditOrg && <button className={`btn ${tab === 'org' ? '' : 'btn-outline'}`} onClick={() => { setTab('org'); setEditing(false); }}>Organization</button>}
+        {canEditSchool && <button className={`btn ${tab === 'school' ? '' : 'btn-outline'}`} onClick={() => { setTab('school'); setEditing(false); }}>School</button>}
       </div>
 
       {/* Org Branding */}
@@ -149,10 +163,16 @@ export default function BrandingPage() {
         <div>
           {isSuperAdmin && (
             <div style={{ marginBottom: '1rem' }}>
-              <select value={selectedSchoolId} onChange={(e) => { setSelectedSchoolId(e.target.value); loadSchoolBranding(e.target.value); setEditing(false); }}>
+              <select value={selectedSchoolId} onChange={(e) => { setSelectedSchoolId(e.target.value); setEditing(false); }}>
                 <option value="">Select School</option>
                 {schools.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
+            </div>
+          )}
+
+          {isOwner && !isSuperAdmin && (
+            <div style={{ marginBottom: '1rem', padding: '0.75rem', background: '#e3f2fd', borderRadius: '8px', color: '#1565c0' }}>
+              Customize branding for your school. These settings will appear on student-facing screens and certificates.
             </div>
           )}
 
@@ -160,7 +180,7 @@ export default function BrandingPage() {
             <div className="card">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                 <h2>School Branding</h2>
-                {(isSuperAdmin || isOwner) && !editing && <button className="btn" onClick={startEditSchool}>Edit</button>}
+                {canEditSchool && !editing && <button className="btn" onClick={startEditSchool}>Edit</button>}
               </div>
 
               {!editing ? (

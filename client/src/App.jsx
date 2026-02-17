@@ -31,6 +31,7 @@ import VirtualClassesPage from './pages/VirtualClassesPage';
 import EventsPage from './pages/EventsPage';
 import CertificationsPage from './pages/CertificationsPage';
 import BrandingPage from './pages/BrandingPage';
+import CalendarPage from './pages/CalendarPage';
 import HelpCenterPage from './pages/HelpCenterPage';
 import PublicEventsPage from './pages/PublicEventsPage';
 import PublicShopPage from './pages/PublicShopPage';
@@ -96,6 +97,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <AppLayout><SessionsPage /></AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/calendar"
+        element={
+          <ProtectedRoute>
+            <AppLayout><CalendarPage /></AppLayout>
           </ProtectedRoute>
         }
       />

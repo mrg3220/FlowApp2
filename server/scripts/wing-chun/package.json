@@ -1,0 +1,25 @@
+{
+  "name": "@flowapp/wing-chun-dynamodb",
+  "version": "1.0.0",
+  "description": "Shaolin Wing Chun program data management for DynamoDB (single-table design)",
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "seed": "node src/seed.js",
+    "query": "node src/cli.js",
+    "validate": "node src/validate.js",
+    "teardown": "node src/teardown.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.700.0",
+    "@aws-sdk/lib-dynamodb": "^3.700.0",
+    "@aws-sdk/util-dynamodb": "^3.700.0",
+    "dotenv": "^16.4.7",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0"
+  }
+}

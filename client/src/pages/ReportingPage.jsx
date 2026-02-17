@@ -11,25 +11,51 @@ export default function ReportingPage() {
   const [paymentStats, setPaymentStats] = useState([]);
   const [tab, setTab] = useState('OVERVIEW');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    schoolApi.getAll().then((s) => { setSchools(s); if (s.length) setSchoolId(s[0].id); });
+    schoolApi.getAll()
+      .then((s) => { setSchools(s); if (s.length) setSchoolId(s[0].id); })
+      .catch((err) => {
+        console.error('Reporting: failed to load schools', err);
+        setError(err);
+      });
   }, []);
 
   useEffect(() => {
     if (!schoolId) return;
     setLoading(true);
+    setError(null);
     Promise.all([
       reportingApi.getDashboard(schoolId),
       reportingApi.getPaymentStats(schoolId),
-    ]).then(([d, p]) => { setDashboard(d); setPaymentStats(p); }).finally(() => setLoading(false));
+    ])
+      .then(([d, p]) => { setDashboard(d); setPaymentStats(p); })
+      .catch((err) => {
+        console.error('Reporting: failed to load dashboard/payment stats', err);
+        setError(err);
+      })
+      .finally(() => setLoading(false));
   }, [schoolId]);
 
   useEffect(() => {
-    if (isSuperAdmin) reportingApi.getBySchool().then(setBySchool);
-  }, []);
+    if (!isSuperAdmin) return;
+    reportingApi.getBySchool()
+      .then(setBySchool)
+      .catch((err) => {
+        console.error('Reporting: failed to load by-school data', err);
+        setError(err);
+      });
+  }, [isSuperAdmin]);
 
   const fmt = (n) => '$' + (Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  const formatError = (err) => {
+    if (!err) return null;
+    const status = err.status ? `HTTP ${err.status}` : 'Unknown status';
+    const endpoint = err.endpoint ? ` (${err.endpoint})` : '';
+    return `${status}${endpoint}: ${err.message || 'Request failed'}`;
+  };
 
   return (
     <div className="page">
@@ -44,6 +70,12 @@ export default function ReportingPage() {
         <button className={`btn ${tab === 'PLANS' ? 'btn-primary' : 'btn-outline'}`} onClick={() => setTab('PLANS')}>By Plan</button>
         {isSuperAdmin && <button className={`btn ${tab === 'SCHOOLS' ? 'btn-primary' : 'btn-outline'}`} onClick={() => setTab('SCHOOLS')}>By School</button>}
       </div>
+
+      {error && (
+        <div className="alert" style={{ marginBottom: '1rem', padding: '0.75rem', background: '#1a1a2e', border: '1px solid #ff4757', borderRadius: '8px' }}>
+          <strong>Reporting Error:</strong> {formatError(error)}
+        </div>
+      )}
 
       {loading && <p>Loading reports...</p>}
 

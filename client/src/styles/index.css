@@ -418,6 +418,8 @@ tr:hover td {
   justify-content: center;
   align-items: center;
   z-index: 1000;
+  padding: 1rem;
+  overflow-y: auto;
 }
 
 .modal {
@@ -427,8 +429,27 @@ tr:hover td {
   padding: 2rem;
   width: 100%;
   max-width: 520px;
-  max-height: 80vh;
+  max-height: calc(100vh - 2rem);
+  overflow: visible;
+  position: relative;
+  margin: auto;
+}
+
+.modal-body {
+  max-height: calc(100vh - 10rem);
   overflow-y: auto;
+}
+
+/* Ensure native form controls render properly */
+.modal select.form-control {
+  position: relative;
+  cursor: pointer;
+}
+
+.modal input[type="date"],
+.modal input[type="time"] {
+  position: relative;
+  cursor: pointer;
 }
 
 .modal h2 {

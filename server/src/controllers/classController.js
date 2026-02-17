@@ -210,4 +210,142 @@ const deleteClass = async (req, res, next) => {
   }
 };
 
-module.exports = { createClass, getClasses, getClassById, updateClass, deleteClass };
+/**
+ * POST /api/classes/:id/schedules
+ * Add a recurring schedule to a class and auto-generate sessions for next 4 weeks
+ */
+const addSchedule = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { dayOfWeek, startTime, endTime, effectiveFrom, effectiveUntil, weeksToGenerate = 4 } = req.body;
+
+    // Verify class exists and user has access
+    const cls = await prisma.class.findUnique({ where: { id } });
+    if (!cls) return res.status(404).json({ error: 'Class not found' });
+    if (!isSuperRole(req.user) && req.user.schoolId !== cls.schoolId && req.user.role !== 'OWNER') {
+      return res.status(403).json({ error: 'Insufficient permissions' });
+    }
+
+    const schedule = await prisma.classSchedule.create({
+      data: {
+        classId: id,
+        dayOfWeek,
+        startTime,
+        endTime,
+        effectiveFrom: effectiveFrom ? new Date(effectiveFrom) : new Date(),
+        effectiveUntil: effectiveUntil ? new Date(effectiveUntil) : null,
+      },
+    });
+
+    // Auto-generate sessions for the next X weeks
+    const dayMap = { SUN: 0, MON: 1, TUE: 2, WED: 3, THU: 4, FRI: 5, SAT: 6 };
+    const targetDay = dayMap[dayOfWeek];
+    const sessionsToCreate = [];
+    const startDate = effectiveFrom ? new Date(effectiveFrom) : new Date();
+    const endDate = effectiveUntil ? new Date(effectiveUntil) : null;
+
+    // Find the first occurrence of this day of week from start date
+    let currentDate = new Date(startDate);
+    const currentDayOfWeek = currentDate.getDay();
+    const daysUntilTarget = (targetDay - currentDayOfWeek + 7) % 7;
+    currentDate.setDate(currentDate.getDate() + (daysUntilTarget === 0 && currentDate >= new Date() ? 0 : daysUntilTarget || 7));
+
+    // Generate sessions for the specified number of weeks
+    for (let week = 0; week < weeksToGenerate; week++) {
+      const sessionDate = new Date(currentDate);
+      sessionDate.setDate(sessionDate.getDate() + (week * 7));
+
+      // Skip if past effectiveUntil
+      if (endDate && sessionDate > endDate) break;
+
+      // Skip past dates
+      if (sessionDate < new Date().setHours(0, 0, 0, 0)) continue;
+
+      // Generate unique QR code
+      const qrCode = `${cls.id}-${sessionDate.toISOString().split('T')[0]}-${schedule.id}`.slice(0, 50);
+
+      sessionsToCreate.push({
+        classId: id,
+        scheduleId: schedule.id,
+        sessionDate,
+        startTime,
+        endTime,
+        status: 'SCHEDULED',
+        qrCode,
+      });
+    }
+
+    // Create all sessions
+    if (sessionsToCreate.length > 0) {
+      await prisma.classSession.createMany({
+        data: sessionsToCreate,
+        skipDuplicates: true,
+      });
+    }
+
+    res.status(201).json({
+      schedule,
+      sessionsGenerated: sessionsToCreate.length,
+      message: `Schedule created with ${sessionsToCreate.length} sessions generated`,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * PUT /api/classes/:id/schedules/:scheduleId
+ * Update a schedule
+ */
+const updateSchedule = async (req, res, next) => {
+  try {
+    const { id, scheduleId } = req.params;
+    const { dayOfWeek, startTime, endTime, effectiveFrom, effectiveUntil } = req.body;
+
+    // Verify class
+    const cls = await prisma.class.findUnique({ where: { id } });
+    if (!cls) return res.status(404).json({ error: 'Class not found' });
+    if (!isSuperRole(req.user) && req.user.schoolId !== cls.schoolId && req.user.role !== 'OWNER') {
+      return res.status(403).json({ error: 'Insufficient permissions' });
+    }
+
+    const schedule = await prisma.classSchedule.update({
+      where: { id: scheduleId },
+      data: {
+        ...(dayOfWeek && { dayOfWeek }),
+        ...(startTime && { startTime }),
+        ...(endTime && { endTime }),
+        ...(effectiveFrom !== undefined && { effectiveFrom: effectiveFrom ? new Date(effectiveFrom) : null }),
+        ...(effectiveUntil !== undefined && { effectiveUntil: effectiveUntil ? new Date(effectiveUntil) : null }),
+      },
+    });
+
+    res.json(schedule);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * DELETE /api/classes/:id/schedules/:scheduleId
+ * Remove a schedule
+ */
+const deleteSchedule = async (req, res, next) => {
+  try {
+    const { id, scheduleId } = req.params;
+
+    // Verify class
+    const cls = await prisma.class.findUnique({ where: { id } });
+    if (!cls) return res.status(404).json({ error: 'Class not found' });
+    if (!isSuperRole(req.user) && req.user.schoolId !== cls.schoolId && req.user.role !== 'OWNER') {
+      return res.status(403).json({ error: 'Insufficient permissions' });
+    }
+
+    await prisma.classSchedule.delete({ where: { id: scheduleId } });
+    res.json({ message: 'Schedule deleted' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { createClass, getClasses, getClassById, updateClass, deleteClass, addSchedule, updateSchedule, deleteSchedule };

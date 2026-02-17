@@ -105,24 +105,37 @@ const getCertificates = async (req, res, next) => {
     }
 
     const { skip, take, page, limit } = parsePagination(req.query);
-    const where = {};
-    if (schoolId) where.schoolId = schoolId;
+    // Certificate doesn't have schoolId directly - filter through template relation
+    const where = schoolId ? { template: { schoolId } } : {};
 
     const [certificates, total] = await Promise.all([
       prisma.certificate.findMany({
         where,
         include: {
-          user: { select: { id: true, firstName: true, lastName: true, email: true } },
-          template: { select: { name: true } },
+          template: { select: { id: true, name: true, layoutJson: true } },
+          promotion: { select: { id: true } },
         },
-        orderBy: { issuedAt: 'desc' },
+        orderBy: { createdAt: 'desc' },
         skip,
         take,
       }),
       prisma.certificate.count({ where }),
     ]);
 
-    res.json(paginatedResponse(certificates, total, page, limit));
+    // Map to expected frontend shape
+    const mapped = certificates.map((c) => ({
+      id: c.id,
+      studentName: c.studentName,
+      beltName: c.beltName,
+      programName: c.programName,
+      schoolName: c.schoolName,
+      issuedDate: c.awardedDate,
+      certificateNumber: c.id.slice(0, 8).toUpperCase(),
+      pdfUrl: c.pdfUrl,
+      template: c.template ? { id: c.template.id, name: c.template.name, layout: c.template.layoutJson } : null,
+    }));
+
+    res.json(paginatedResponse(mapped, total, page, limit));
   } catch (error) { next(error); }
 };
 

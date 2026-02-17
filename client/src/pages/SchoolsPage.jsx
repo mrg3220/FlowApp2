@@ -165,8 +165,8 @@ export default function SchoolsPage() {
 
       {/* Create School Modal */}
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowModal(false); }}>
+          <div className="modal">
             <h2>New School</h2>
             <form onSubmit={handleCreate}>
               <div className="form-group">
@@ -221,8 +221,8 @@ export default function SchoolsPage() {
 
       {/* School Detail Modal */}
       {showDetailModal && selectedSchool && (
-        <div className="modal-overlay" onClick={() => setShowDetailModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '640px' }}>
+        <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowDetailModal(false); }}>
+          <div className="modal" style={{ maxWidth: '640px' }}>
             <h2>{selectedSchool.name}</h2>
             <p style={{ color: 'var(--color-text-light)', marginBottom: '1rem' }}>
               Owned by {selectedSchool.owner?.firstName} {selectedSchool.owner?.lastName}
@@ -298,8 +298,8 @@ export default function SchoolsPage() {
 
       {/* Enroll Student Modal */}
       {showEnrollModal && (
-        <div className="modal-overlay" onClick={() => setShowEnrollModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowEnrollModal(false); }}>
+          <div className="modal">
             <h2>Enroll Student at {selectedSchool?.name}</h2>
             <div className="form-group">
               <label>Select Student</label>

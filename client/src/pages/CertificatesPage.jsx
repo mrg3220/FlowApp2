@@ -16,44 +16,80 @@ export default function CertificatesPage() {
   const [generateForm, setGenerateForm] = useState({ promotionId: '' });
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [showGenerate, setShowGenerate] = useState(false);
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const formatError = (err, context) => {
+    const status = err?.status || 'Unknown';
+    const endpoint = err?.endpoint || 'N/A';
+    let message = err?.message;
+    if (typeof message === 'object') message = JSON.stringify(message);
+    if (!message) message = typeof err === 'object' ? JSON.stringify(err) : String(err);
+    return `[CERT-${context}] HTTP ${status} (${endpoint}): ${message}`;
+  };
 
   useEffect(() => {
-    schoolApi.getAll().then((s) => { setSchools(s); if (s.length) setSchoolId(s[0].id); });
+    setLoading(true);
+    schoolApi.getAll()
+      .then((s) => { setSchools(s); if (s.length) setSchoolId(s[0].id); })
+      .catch((err) => setError(formatError(err, 'SCHOOLS')))
+      .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
     if (!schoolId) return;
-    certificateApi.getTemplates(schoolId).then(setTemplates);
-    certificateApi.getCertificates(schoolId).then(setCerts);
+    setError(null);
+    setLoading(true);
+    Promise.all([
+      certificateApi.getTemplates(schoolId).then(setTemplates).catch((err) => { throw { ...err, context: 'TEMPLATES' }; }),
+      certificateApi.getCertificates(schoolId).then(setCerts).catch((err) => { throw { ...err, context: 'CERTS' }; }),
+    ])
+      .catch((err) => setError(formatError(err, err.context || 'LOAD')))
+      .finally(() => setLoading(false));
   }, [schoolId]);
 
   const handleSaveTemplate = async (e) => {
     e.preventDefault();
+    setError(null);
     const data = { ...templateForm };
     try { data.layout = JSON.parse(data.layout); } catch { data.layout = {}; }
-    if (editTemplate) {
-      await certificateApi.updateTemplate(editTemplate.id, data);
-    } else {
-      await certificateApi.createTemplate(schoolId, data);
+    try {
+      if (editTemplate) {
+        await certificateApi.updateTemplate(editTemplate.id, data);
+      } else {
+        await certificateApi.createTemplate(schoolId, data);
+      }
+      setShowTemplateForm(false);
+      setEditTemplate(null);
+      setTemplateForm({ name: '', layout: '{}', backgroundUrl: '' });
+      certificateApi.getTemplates(schoolId).then(setTemplates).catch((err) => setError(formatError(err, 'REFRESH-TPL')));
+    } catch (err) {
+      setError(formatError(err, editTemplate ? 'UPDATE-TPL' : 'CREATE-TPL'));
     }
-    setShowTemplateForm(false);
-    setEditTemplate(null);
-    setTemplateForm({ name: '', layout: '{}', backgroundUrl: '' });
-    certificateApi.getTemplates(schoolId).then(setTemplates);
   };
 
   const handleGenerate = async (e) => {
     e.preventDefault();
-    await certificateApi.generate({ templateId: selectedTemplateId, promotionId: generateForm.promotionId });
-    setShowGenerate(false);
-    setGenerateForm({ promotionId: '' });
-    certificateApi.getCertificates(schoolId).then(setCerts);
+    setError(null);
+    try {
+      await certificateApi.generate({ templateId: selectedTemplateId, promotionId: generateForm.promotionId });
+      setShowGenerate(false);
+      setGenerateForm({ promotionId: '' });
+      certificateApi.getCertificates(schoolId).then(setCerts).catch((err) => setError(formatError(err, 'REFRESH-CERTS')));
+    } catch (err) {
+      setError(formatError(err, 'GENERATE'));
+    }
   };
 
   const handleDeleteTemplate = async (id) => {
     if (!confirm('Delete template?')) return;
-    await certificateApi.deleteTemplate(id);
-    certificateApi.getTemplates(schoolId).then(setTemplates);
+    setError(null);
+    try {
+      await certificateApi.deleteTemplate(id);
+      certificateApi.getTemplates(schoolId).then(setTemplates).catch((err) => setError(formatError(err, 'REFRESH-TPL')));
+    } catch (err) {
+      setError(formatError(err, 'DELETE-TPL'));
+    }
   };
 
   const previewLayout = (layout) => {
@@ -77,6 +113,15 @@ export default function CertificatesPage() {
   return (
     <div className="page">
       <h1>🏅 Belt Certificates</h1>
+
+      {error && (
+        <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '1rem', marginBottom: '1rem', color: '#991b1b' }}>
+          <strong>Error:</strong> {error}
+          <button onClick={() => setError(null)} style={{ marginLeft: '1rem', background: 'none', border: 'none', color: '#991b1b', cursor: 'pointer', fontWeight: 'bold' }}>✕</button>
+        </div>
+      )}
+
+      {loading && <div style={{ color: '#666', marginBottom: '1rem' }}>Loading...</div>}
 
       <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
         <select value={schoolId} onChange={(e) => setSchoolId(e.target.value)} className="form-input" style={{ width: 'auto' }}>

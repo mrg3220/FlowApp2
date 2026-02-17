@@ -290,8 +290,8 @@ function MembershipPlans({ schoolId }) {
       </div>
 
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowModal(false); }}>
+          <div className="modal">
             <h2>{editPlan ? 'Edit Plan' : 'New Membership Plan'}</h2>
             {error && <div className="alert alert-error">{error}</div>}
             <form onSubmit={handleSubmit}>
@@ -494,8 +494,8 @@ function InvoiceManager({ schoolId }) {
       </div>
 
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowModal(false); }}>
+          <div className="modal">
             <h2>Create Invoice</h2>
             {error && <div className="alert alert-error">{error}</div>}
             <form onSubmit={handleSubmit}>
@@ -714,8 +714,8 @@ function PaymentHistory({ schoolId }) {
       </div>
 
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowModal(false); }}>
+          <div className="modal">
             <h2>Record Payment</h2>
             {error && <div className="alert alert-error">{error}</div>}
             <form onSubmit={handleSubmit}>
@@ -1133,8 +1133,8 @@ function SubscriptionManager({ schoolId }) {
       </div>
 
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowModal(false); }}>
+          <div className="modal">
             <h2>Assign Student to Plan</h2>
             {error && <div className="alert alert-error">{error}</div>}
             <form onSubmit={handleSubmit}>

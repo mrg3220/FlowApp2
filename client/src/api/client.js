@@ -27,7 +27,12 @@ async function request(endpoint, options = {}) {
   const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(data.error || 'Request failed');
+    const message = data.error || 'Request failed';
+    const error = new Error(message);
+    error.status = response.status;
+    error.endpoint = endpoint;
+    error.details = data;
+    throw error;
   }
 
   return data;
@@ -121,6 +126,16 @@ export const classApi = {
 
   delete: (id) =>
     request(`/classes/${id}`, { method: 'DELETE' }),
+
+  // Schedule management
+  addSchedule: (classId, data) =>
+    request(`/classes/${classId}/schedules`, { method: 'POST', body: JSON.stringify(data) }),
+
+  updateSchedule: (classId, scheduleId, data) =>
+    request(`/classes/${classId}/schedules/${scheduleId}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+  deleteSchedule: (classId, scheduleId) =>
+    request(`/classes/${classId}/schedules/${scheduleId}`, { method: 'DELETE' }),
 };
 
 // ─── Sessions ────────────────────────────────────────────
@@ -332,7 +347,7 @@ export const notificationApi = {
   // User inbox
   getMine: (params) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
-    return requestArray(`/notifications/mine${query}`);
+    return request(`/notifications/mine${query}`);
   },
   markRead: (ids) =>
     request('/notifications/read', { method: 'PUT', body: JSON.stringify({ ids }) }),
@@ -353,7 +368,7 @@ export const notificationApi = {
   // School log (staff)
   getSchoolLog: (schoolId, params) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
-    return requestArray(`/notifications/school/${schoolId}${query}`);
+    return request(`/notifications/school/${schoolId}${query}`);
   },
 
   // Send (staff)
@@ -432,16 +447,75 @@ export const curriculumApi = {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
     return requestArray(`/curriculum${query}`);
   },
+  getBySchool: (schoolId, params) => {
+    const query = new URLSearchParams({ ...(params || {}), schoolId }).toString();
+    return requestArray(`/curriculum?${query}`);
+  },
   getById: (id) => request(`/curriculum/${id}`),
   getCategories: () => request('/curriculum/categories'),
-  create: (data) => request('/curriculum', { method: 'POST', body: JSON.stringify(data) }),
+  create: (schoolIdOrData, data) => {
+    const payload = data ? { ...data, schoolId: schoolIdOrData } : schoolIdOrData;
+    return request('/curriculum', { method: 'POST', body: JSON.stringify(payload) });
+  },
   update: (id, data) => request(`/curriculum/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  delete: (id) => request(`/curriculum/${id}`, { method: 'DELETE' }),
   remove: (id) => request(`/curriculum/${id}`, { method: 'DELETE' }),
 };
 
 // ─── Financial Reporting ─────────────────────────────────
 
+function mapRevenueDashboard(data) {
+  const revenueByMonth = Object.entries(data.revenueByMonth || {}).map(([month, revenue]) => ({
+    month,
+    revenue,
+    count: 0,
+  }));
+  const invoicesByStatus = (data.invoicesByStatus || []).map((s) => ({
+    status: s.status,
+    _count: s.count,
+    _sum: { totalAmount: s.amount },
+  }));
+  const revenueByPlan = (data.revenueByPlan || []).map((p) => ({
+    planName: p.planName,
+    revenue: p.amount,
+    count: p.count,
+  }));
+
+  return {
+    totalRevenue: data.totalRevenue,
+    outstandingBalance: data.outstandingBalance,
+    activeSubscriptions: data.activeSubscriptions,
+    revenueByMonth,
+    invoicesByStatus,
+    revenueByPlan,
+  };
+}
+
+function mapPaymentStats(rows) {
+  return (rows || []).map((p) => ({
+    paymentMethod: p.method,
+    _count: p.count,
+    _sum: { totalAmount: p.amount },
+  }));
+}
+
+function mapBySchool(rows) {
+  return (rows || []).map((r) => ({
+    schoolId: r.schoolId,
+    schoolName: r.schoolName,
+    totalRevenue: r.revenue,
+    outstanding: 0,
+    invoiceCount: r.invoiceCount,
+  }));
+}
+
 export const reportingApi = {
+  getDashboard: (schoolId, params) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return request(`/reporting/revenue/${schoolId}${query}`).then(mapRevenueDashboard);
+  },
+  getBySchool: () => request('/reporting/revenue-by-school').then(mapBySchool),
+  getPaymentStats: (schoolId) => request(`/reporting/payment-methods/${schoolId}`).then(mapPaymentStats),
   getRevenue: (schoolId, params) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
     return requestArray(`/reporting/revenue/${schoolId}${query}`);
@@ -488,7 +562,8 @@ export const retailApi = {
 
 export const certificateApi = {
   getTemplates: (schoolId) => requestArray(`/certificates/templates/${schoolId || ''}`),
-  createTemplate: (data) => request('/certificates/templates', { method: 'POST', body: JSON.stringify(data) }),
+  getCertificates: (schoolId) => requestArray(`/certificates?schoolId=${schoolId}`),
+  createTemplate: (schoolId, data) => request('/certificates/templates', { method: 'POST', body: JSON.stringify({ ...data, schoolId }) }),
   updateTemplate: (id, data) => request(`/certificates/templates/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteTemplate: (id) => request(`/certificates/templates/${id}`, { method: 'DELETE' }),
   getAll: (params) => {
@@ -633,10 +708,18 @@ export const virtualApi = {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
     return requestArray(`/virtual${query}`);
   },
+  getBySchool: (schoolId, params) => {
+    const query = new URLSearchParams({ ...(params || {}), schoolId }).toString();
+    return requestArray(`/virtual?${query}`);
+  },
   getById: (id) => request(`/virtual/${id}`),
   getStats: (id) => request(`/virtual/${id}/stats`),
-  create: (data) => request('/virtual', { method: 'POST', body: JSON.stringify(data) }),
+  create: (schoolIdOrData, data) => {
+    const payload = data ? { ...data, schoolId: schoolIdOrData } : schoolIdOrData;
+    return request('/virtual', { method: 'POST', body: JSON.stringify(payload) });
+  },
   update: (id, data) => request(`/virtual/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  delete: (id) => request(`/virtual/${id}`, { method: 'DELETE' }),
   remove: (id) => request(`/virtual/${id}`, { method: 'DELETE' }),
   recordView: (id, data) => request(`/virtual/${id}/view`, { method: 'POST', body: JSON.stringify(data) }),
   getMyViews: () => request('/virtual/my-views'),
@@ -650,7 +733,7 @@ export const adminApi = {
   // User management
   getUsers: (params) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
-    return requestArray(`/admin/users${query}`);
+    return request(`/admin/users${query}`);
   },
   getUser: (id) => request(`/admin/users/${id}`),
   createUser: (data) => request('/admin/users/create', { method: 'POST', body: JSON.stringify(data) }),
@@ -662,13 +745,13 @@ export const adminApi = {
   // Audit logs
   getAuditLogs: (params) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
-    return requestArray(`/admin/audit-logs${query}`);
+    return request(`/admin/audit-logs${query}`);
   },
 
   // System settings
   getSettings: (params) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
-    return requestArray(`/admin/settings${query}`);
+    return request(`/admin/settings${query}`);
   },
   upsertSetting: (key, data) => request(`/admin/settings/${key}`, { method: 'PUT', body: JSON.stringify(data) }),
 };
