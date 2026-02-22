@@ -14,7 +14,7 @@
 # Installs all dependencies (including dev) and generates
 # the Prisma client. None of the build tools carry over
 # to the production stage.
-FROM node:20-alpine AS build
+FROM node:25-alpine AS build
 
 # OpenSSL is required by Prisma Client for TLS database connections
 RUN apk add --no-cache openssl
@@ -35,7 +35,7 @@ COPY . .
 
 # ─── Production stage ────────────────────────────────────
 # Minimal image: only Node runtime, OpenSSL, and our app code.
-FROM node:20-alpine
+FROM node:25-alpine
 
 # OpenSSL required by Prisma at runtime for TLS
 RUN apk add --no-cache openssl \
