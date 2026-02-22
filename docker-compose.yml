@@ -60,6 +60,32 @@ services:
           memory: 512M
           cpus: "1.0"
 
+  # ─── Redis Cache & Rate-Limit Store ──────────────────────
+  # Optional but recommended: enables shared rate-limit state
+  # across restarts and response caching for hot endpoints.
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--maxmemory", "64mb", "--maxmemory-policy", "allkeys-lru"]
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /data:size=64m
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.5"
+
   # ─── Express API Server ──────────────────────────────────
   # Connected to both networks:
   #   - backend: to reach the database
@@ -79,15 +105,18 @@ services:
       PORT: ${PORT}
       NODE_ENV: ${NODE_ENV}
       CORS_ORIGIN: ${CORS_ORIGIN}
+      REDIS_URL: ${REDIS_URL}
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - backend
       - frontend
-    # Prisma schema push on startup, then start the server
+    # Prisma migrate deploy on startup (safe for production — never drops data)
     command: >
-      sh -c "npx prisma db push --skip-generate && node src/index.js"
+      sh -c "npx prisma migrate deploy && node src/index.js"
     # Security: prevent privilege escalation inside the container
     security_opt:
       - no-new-privileges:true

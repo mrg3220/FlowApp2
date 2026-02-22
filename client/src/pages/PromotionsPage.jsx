@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { promotionApi, schoolApi, enrollmentApi } from '../api/client';
 import { displayRole } from '../utils/displayRole';
+import BatchBeltTest from '../components/BatchBeltTest';
 
 const STAFF_TABS = ['Programs', 'Belts & Requirements', 'Enrollments', 'Student Progress', 'Tests', 'Essays'];
 const STUDENT_TABS = ['My Progress', 'My Essays'];
@@ -761,6 +762,7 @@ function TestsTab({ schoolId }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [showBatchTest, setShowBatchTest] = useState(false);
   const [testForm, setTestForm] = useState({ programEnrollmentId: '', beltId: '', testDate: '' });
   const [programs, setPrograms] = useState([]);
   const [selectedProgramBelts, setSelectedProgramBelts] = useState([]);
@@ -803,12 +805,29 @@ function TestsTab({ schoolId }) {
   return (
     <div>
       {canManage && (
-        <div style={{ marginBottom: '1rem' }}>
+        <div style={{ marginBottom: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           <button className="btn btn-primary" onClick={() => {
             setTestForm({ programEnrollmentId: '', beltId: '', testDate: new Date().toISOString().split('T')[0] });
             setShowModal(true);
           }}>+ Schedule Test</button>
+          <button 
+            className="btn" 
+            style={{ backgroundColor: '#9b59b6', color: 'white' }}
+            onClick={() => setShowBatchTest(true)}
+            title="Test multiple students at once (up to 10)"
+          >
+            🥋 Batch Test Mode
+          </button>
         </div>
+      )}
+
+      {/* Batch Belt Test Overlay */}
+      {showBatchTest && (
+        <BatchBeltTest
+          schoolId={schoolId}
+          onClose={() => setShowBatchTest(false)}
+          onComplete={() => fetchData()}
+        />
       )}
 
       <div className="card">

@@ -1,7 +1,64 @@
 const API_BASE = '/api';
 
+// ─── Refresh token queue ─────────────────────────────────
+// Prevents multiple concurrent refresh requests when several
+// API calls fail with 401 at the same time.
+let isRefreshing = false;
+let refreshSubscribers = [];
+
+function onTokenRefreshed(newToken) {
+  refreshSubscribers.forEach((cb) => cb(newToken));
+  refreshSubscribers = [];
+}
+
+function addRefreshSubscriber(cb) {
+  refreshSubscribers.push(cb);
+}
+
 /**
- * Generic fetch wrapper with auth token handling.
+ * Attempts to refresh the access token using the stored refresh token.
+ * Returns the new access token on success, or null on failure.
+ */
+async function attemptTokenRefresh() {
+  const refreshToken = localStorage.getItem('flowapp_refresh_token');
+  if (!refreshToken) return null;
+
+  try {
+    const response = await fetch(`${API_BASE}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+    });
+
+    if (!response.ok) {
+      // Refresh failed — clear everything and force login
+      clearAuthStorage();
+      return null;
+    }
+
+    const data = await response.json();
+    localStorage.setItem('flowapp_token', data.token);
+    localStorage.setItem('flowapp_refresh_token', data.refreshToken);
+    localStorage.setItem('flowapp_user', JSON.stringify(data.user));
+    return data.token;
+  } catch {
+    clearAuthStorage();
+    return null;
+  }
+}
+
+function clearAuthStorage() {
+  localStorage.removeItem('flowapp_token');
+  localStorage.removeItem('flowapp_refresh_token');
+  localStorage.removeItem('flowapp_user');
+}
+
+/**
+ * Generic fetch wrapper with auth token handling and auto-refresh.
+ *
+ * On 401: transparently attempts to refresh the access token.
+ * If refresh succeeds, retries the original request.
+ * If refresh fails, redirects to /login.
  */
 async function request(endpoint, options = {}) {
   const token = localStorage.getItem('flowapp_token');
@@ -17,11 +74,57 @@ async function request(endpoint, options = {}) {
 
   const response = await fetch(`${API_BASE}${endpoint}`, config);
 
+  // ─── Auto-refresh on 401 ────────────────────────────
   if (response.status === 401) {
-    localStorage.removeItem('flowapp_token');
-    localStorage.removeItem('flowapp_user');
-    window.location.href = '/login';
-    throw new Error('Session expired');
+    // Don't try to refresh the /auth/refresh endpoint itself
+    if (endpoint === '/auth/refresh' || endpoint === '/auth/login') {
+      clearAuthStorage();
+      window.location.href = '/login';
+      throw new Error('Session expired');
+    }
+
+    if (!isRefreshing) {
+      isRefreshing = true;
+      const newToken = await attemptTokenRefresh();
+      isRefreshing = false;
+
+      if (newToken) {
+        onTokenRefreshed(newToken);
+        // Retry the original request with the new token
+        config.headers.Authorization = `Bearer ${newToken}`;
+        const retryResponse = await fetch(`${API_BASE}${endpoint}`, config);
+        const retryData = await retryResponse.json();
+        if (!retryResponse.ok) {
+          const error = new Error(retryData.error || 'Request failed');
+          error.status = retryResponse.status;
+          throw error;
+        }
+        return retryData;
+      } else {
+        // Refresh failed — force login
+        window.location.href = '/login';
+        throw new Error('Session expired');
+      }
+    } else {
+      // Another refresh is in progress — wait for it
+      return new Promise((resolve, reject) => {
+        addRefreshSubscriber(async (newToken) => {
+          try {
+            config.headers.Authorization = `Bearer ${newToken}`;
+            const retryResponse = await fetch(`${API_BASE}${endpoint}`, config);
+            const retryData = await retryResponse.json();
+            if (!retryResponse.ok) {
+              const error = new Error(retryData.error || 'Request failed');
+              error.status = retryResponse.status;
+              throw error;
+            }
+            resolve(retryData);
+          } catch (err) {
+            reject(err);
+          }
+        });
+      });
+    }
   }
 
   const data = await response.json();
@@ -68,6 +171,12 @@ export const authApi = {
   register: (data) =>
     request('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
 
+  refresh: (refreshToken) =>
+    request('/auth/refresh', { method: 'POST', body: JSON.stringify({ refreshToken }) }),
+
+  logout: (refreshToken) =>
+    request('/auth/logout', { method: 'POST', body: JSON.stringify({ refreshToken }) }),
+
   getMe: () => request('/auth/me'),
 };
 
@@ -108,54 +217,68 @@ export const enrollmentApi = {
     request(`/enrollments/${id}/deactivate`, { method: 'PUT' }),
 };
 
-// ─── Classes ─────────────────────────────────────────────
+// ─── Programs (formerly Classes) ─────────────────────────
+// Program offerings - scheduled class types with instructors and schedules
 
-export const classApi = {
+export const programApi = {
   getAll: (params) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
-    return requestArray(`/classes${query}`);
+    return requestArray(`/programs${query}`);
   },
 
-  getById: (id) => request(`/classes/${id}`),
+  getById: (id) => request(`/programs/${id}`),
 
   create: (data) =>
-    request('/classes', { method: 'POST', body: JSON.stringify(data) }),
+    request('/programs', { method: 'POST', body: JSON.stringify(data) }),
 
   update: (id, data) =>
-    request(`/classes/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    request(`/programs/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
 
   delete: (id) =>
-    request(`/classes/${id}`, { method: 'DELETE' }),
+    request(`/programs/${id}`, { method: 'DELETE' }),
 
   // Schedule management
-  addSchedule: (classId, data) =>
-    request(`/classes/${classId}/schedules`, { method: 'POST', body: JSON.stringify(data) }),
+  addSchedule: (programId, data) =>
+    request(`/programs/${programId}/schedules`, { method: 'POST', body: JSON.stringify(data) }),
 
-  updateSchedule: (classId, scheduleId, data) =>
-    request(`/classes/${classId}/schedules/${scheduleId}`, { method: 'PUT', body: JSON.stringify(data) }),
+  updateSchedule: (programId, scheduleId, data) =>
+    request(`/programs/${programId}/schedules/${scheduleId}`, { method: 'PUT', body: JSON.stringify(data) }),
 
-  deleteSchedule: (classId, scheduleId) =>
-    request(`/classes/${classId}/schedules/${scheduleId}`, { method: 'DELETE' }),
+  deleteSchedule: (programId, scheduleId) =>
+    request(`/programs/${programId}/schedules/${scheduleId}`, { method: 'DELETE' }),
+
+  // Get available curricula for linking
+  getCurricula: (params) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return requestArray(`/programs/curricula${query}`);
+  },
 };
 
-// ─── Sessions ────────────────────────────────────────────
+// Legacy alias for backward compatibility
+export const classApi = programApi;
 
-export const sessionApi = {
+// ─── Classes (formerly Sessions) ─────────────────────────
+// Individual class meetings on specific dates
+
+export const classInstanceApi = {
   getAll: (params) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
-    return requestArray(`/sessions${query}`);
+    return requestArray(`/class-instances${query}`);
   },
 
-  getById: (id) => request(`/sessions/${id}`),
+  getById: (id) => request(`/class-instances/${id}`),
 
   create: (data) =>
-    request('/sessions', { method: 'POST', body: JSON.stringify(data) }),
+    request('/class-instances', { method: 'POST', body: JSON.stringify(data) }),
 
   updateStatus: (id, status) =>
-    request(`/sessions/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+    request(`/class-instances/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
 
-  getQr: (id) => request(`/sessions/${id}/qr`),
+  getQr: (id) => request(`/class-instances/${id}/qr`),
 };
+
+// Legacy alias for backward compatibility
+export const sessionApi = classInstanceApi;
 
 // ─── Check-ins ───────────────────────────────────────────
 

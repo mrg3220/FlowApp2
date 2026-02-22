@@ -1,0 +1,51 @@
+version: 2
+updates:
+  # Server (Node.js) dependencies
+  - package-ecosystem: npm
+    directory: /server
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    labels: ["dependencies", "server"]
+    groups:
+      prisma:
+        patterns: ["prisma", "@prisma/*"]
+      express:
+        patterns: ["express", "express-*", "helmet", "cors"]
+      security:
+        patterns: ["bcryptjs", "jsonwebtoken"]
+
+  # Client (React) dependencies
+  - package-ecosystem: npm
+    directory: /client
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    labels: ["dependencies", "client"]
+    groups:
+      react:
+        patterns: ["react", "react-*"]
+      vite:
+        patterns: ["vite", "@vitejs/*"]
+
+  # Docker base images
+  - package-ecosystem: docker
+    directory: /server
+    schedule:
+      interval: weekly
+    labels: ["dependencies", "docker"]
+
+  - package-ecosystem: docker
+    directory: /client
+    schedule:
+      interval: weekly
+    labels: ["dependencies", "docker"]
+
+  # GitHub Actions
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    labels: ["dependencies", "ci"]

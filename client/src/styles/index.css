@@ -726,6 +726,415 @@ tr:hover td {
   color: #2c3e50;
 }
 
+/* ─── Batch Belt Testing (12" screen optimized) ─────── */
+
+.batch-test-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+}
+
+.batch-test-container {
+  background: var(--color-card);
+  border-radius: var(--radius);
+  width: 100%;
+  max-width: 1024px;
+  max-height: 95vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.batch-test-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-primary);
+  color: white;
+  border-radius: var(--radius) var(--radius) 0 0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.batch-test-title {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.batch-test-title h2 {
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.batch-test-count {
+  background: var(--color-accent);
+  padding: 0.2rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.batch-test-stats {
+  display: flex;
+  gap: 1rem;
+  padding: 0.5rem 1rem;
+  background: #f8f9fa;
+  border-bottom: 1px solid var(--color-border);
+  justify-content: center;
+}
+
+.batch-test-stats .stat {
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+}
+
+.batch-test-stats .stat-pending { background: #e8f4f8; color: #3498db; }
+.batch-test-stats .stat-passed { background: #e8f8f0; color: #27ae60; }
+.batch-test-stats .stat-failed { background: #fdeaea; color: #e74c3c; }
+
+.batch-test-actions {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+  flex-wrap: wrap;
+}
+
+.batch-test-actions .btn-success {
+  background: var(--color-success);
+  color: white;
+}
+
+.batch-test-selection {
+  padding: 0.75rem 1rem;
+  background: #f8f9fa;
+  border-bottom: 1px solid var(--color-border);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.batch-test-selection h4 {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+  color: var(--color-text-light);
+}
+
+.batch-test-selection-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.selection-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s;
+  font-size: 0.85rem;
+}
+
+.selection-item:hover {
+  background: #e8e8e8;
+}
+
+.selection-item.selected {
+  background: #e8f4fc;
+}
+
+.selection-item input {
+  width: 16px;
+  height: 16px;
+}
+
+.selection-belt {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid #555;
+  flex-shrink: 0;
+}
+
+.selection-name {
+  flex: 1;
+  font-weight: 500;
+}
+
+.selection-target {
+  color: var(--color-text-light);
+  font-size: 0.8rem;
+}
+
+/* Student Test Grid — 2 columns on 12" screens */
+.batch-test-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+  padding: 0.75rem;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.batch-test-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 2rem;
+  color: var(--color-text-light);
+}
+
+/* Student Test Card — compact for touch */
+.student-test-card {
+  background: white;
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.student-test-card.passed {
+  border-color: var(--color-success);
+  background: #f8fff8;
+}
+
+.student-test-card.failed {
+  border-color: var(--color-danger);
+  background: #fff8f8;
+}
+
+.student-test-card.in_progress {
+  border-color: var(--color-warning);
+}
+
+.card-header-compact {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid #eee;
+}
+
+.student-info {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.student-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.status-icon {
+  font-size: 0.85rem;
+}
+
+.belt-info {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+}
+
+.belt-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  border: 1px solid #555;
+  font-size: 0.65rem;
+  color: white;
+  text-shadow: 0 0 2px rgba(0,0,0,0.5);
+  padding: 0 0.2rem;
+}
+
+.belt-badge.target {
+  min-width: auto;
+  padding: 0 0.3rem;
+}
+
+.belt-info .arrow {
+  color: var(--color-text-light);
+}
+
+/* Score Section */
+.score-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.score-presets {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.score-btn {
+  padding: 0.3rem 0.5rem;
+  border: 2px solid;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  min-width: 36px;
+}
+
+.score-btn:hover {
+  opacity: 0.85;
+  transform: scale(1.05);
+}
+
+.score-btn.active {
+  transform: scale(1.08);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+
+.custom-score {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.score-input {
+  width: 50px;
+  padding: 0.25rem 0.4rem;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.score-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.score-unit {
+  font-size: 0.8rem;
+  color: var(--color-text-light);
+}
+
+/* Pass/Fail Toggle */
+.result-toggle {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.result-btn {
+  flex: 1;
+  padding: 0.4rem 0.5rem;
+  border: 2px solid;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  background: transparent;
+}
+
+.result-btn.pass {
+  border-color: var(--color-success);
+  color: var(--color-success);
+}
+
+.result-btn.pass.active,
+.result-btn.pass:hover {
+  background: var(--color-success);
+  color: white;
+}
+
+.result-btn.fail {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.result-btn.fail.active,
+.result-btn.fail:hover {
+  background: var(--color-danger);
+  color: white;
+}
+
+/* Waiting State */
+.waiting-state {
+  text-align: center;
+  padding: 0.75rem;
+  color: var(--color-text-light);
+  font-size: 0.85rem;
+  background: #f8f9fa;
+  border-radius: 4px;
+}
+
+/* Notes Section */
+.notes-section {
+  border-top: 1px solid #eee;
+  padding-top: 0.4rem;
+}
+
+.notes-toggle {
+  background: transparent;
+  border: none;
+  color: var(--color-text-light);
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 0.2rem;
+}
+
+.notes-toggle:hover {
+  color: var(--color-text);
+}
+
+.notes-input {
+  width: 100%;
+  margin-top: 0.25rem;
+  padding: 0.35rem;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  font-size: 0.8rem;
+  resize: none;
+}
+
+/* Responsive: Single column on very small screens */
+@media (max-width: 600px) {
+  .batch-test-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .batch-test-header {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  
+  .batch-test-title h2 {
+    font-size: 1rem;
+  }
+}
+
+/* 3 columns on larger screens */
+@media (min-width: 900px) {
+  .batch-test-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
 /* ─── Responsive ──────────────────────────────────────── */
 
 @media (max-width: 768px) {

@@ -47,12 +47,18 @@ module.exports = {
   /** JWT signing secret — must be strong in production */
   jwtSecret: process.env.JWT_SECRET || 'dev-secret-change-me',
 
-  /** JWT token lifetime (e.g., '4h', '1d') */
-  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
+  /** Access token lifetime — short-lived for security (default 15 min) */
+  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '15m',
+
+  /** Refresh token lifetime in days (default 30 days) */
+  refreshTokenExpiresInDays: parseInt(process.env.REFRESH_TOKEN_EXPIRES_DAYS, 10) || 30,
 
   /** Current environment: 'development' | 'production' | 'test' */
   nodeEnv,
 
   /** Allowed CORS origins (comma-separated in env) */
   corsOrigin: process.env.CORS_ORIGIN || '*',
+
+  /** Redis connection URL (optional — graceful degradation without it) */
+  redisUrl: process.env.REDIS_URL || '',
 };

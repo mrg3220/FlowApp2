@@ -20,6 +20,7 @@ export function AuthProvider({ children }) {
       }).catch(() => {
         localStorage.removeItem('flowapp_user');
         localStorage.removeItem('flowapp_token');
+        localStorage.removeItem('flowapp_refresh_token');
         setUser(null);
       }).finally(() => setLoading(false));
     } else {
@@ -30,6 +31,7 @@ export function AuthProvider({ children }) {
   const login = async (email, password) => {
     const data = await authApi.login(email, password);
     localStorage.setItem('flowapp_token', data.token);
+    localStorage.setItem('flowapp_refresh_token', data.refreshToken);
     localStorage.setItem('flowapp_user', JSON.stringify(data.user));
     setUser(data.user);
     return data.user;
@@ -38,13 +40,23 @@ export function AuthProvider({ children }) {
   const register = async (formData) => {
     const data = await authApi.register(formData);
     localStorage.setItem('flowapp_token', data.token);
+    localStorage.setItem('flowapp_refresh_token', data.refreshToken);
     localStorage.setItem('flowapp_user', JSON.stringify(data.user));
     setUser(data.user);
     return data.user;
   };
 
-  const logout = () => {
+  const logout = async () => {
+    const refreshToken = localStorage.getItem('flowapp_refresh_token');
+    try {
+      if (refreshToken) {
+        await authApi.logout(refreshToken);
+      }
+    } catch {
+      // Ignore errors during logout — we're clearing local state anyway
+    }
     localStorage.removeItem('flowapp_token');
+    localStorage.removeItem('flowapp_refresh_token');
     localStorage.removeItem('flowapp_user');
     setUser(null);
   };

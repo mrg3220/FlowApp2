@@ -1,7 +1,16 @@
+/**
+ * ──────────────────────────────────────────────────────────
+ * Structured Logger (Winston)
+ * ──────────────────────────────────────────────────────────
+ * Development: colorized, human-readable output with metadata
+ * Production:  JSON lines for log aggregation (ELK, CloudWatch,
+ *              Datadog, Loki, etc.)
+ * ──────────────────────────────────────────────────────────
+ */
 const winston = require('winston');
-const path = require('path');
 
-// Define log levels
+const isProduction = process.env.NODE_ENV === 'production';
+
 const levels = {
   error: 0,
   warn: 1,
@@ -10,14 +19,6 @@ const levels = {
   debug: 4,
 };
 
-// Define level based on environment
-const level = () => {
-  const env = process.env.NODE_ENV || 'development';
-  const isDevelopment = env === 'development';
-  return isDevelopment ? 'debug' : 'warn';
-};
-
-// Define colors for each level
 const colors = {
   error: 'red',
   warn: 'yellow',
@@ -26,29 +27,33 @@ const colors = {
   debug: 'white',
 };
 
-// Tell winston that we want to link the colors
 winston.addColors(colors);
 
-// Custom format
-const format = winston.format.combine(
-  winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss:ms' }),
+// ─── Development format: human-readable with colours ────
+const devFormat = winston.format.combine(
+  winston.format.timestamp({ format: 'HH:mm:ss' }),
   winston.format.colorize({ all: true }),
-  winston.format.printf(
-    (info) => `${info.timestamp} ${info.level}: ${info.message}`
-  )
+  winston.format.printf(({ timestamp, level, message, ...meta }) => {
+    const metaStr = Object.keys(meta).length
+      ? ` ${JSON.stringify(meta)}`
+      : '';
+    return `${timestamp} ${level}: ${message}${metaStr}`;
+  })
 );
 
-// Define transports
-const transports = [
-  new winston.transports.Console(),
-];
+// ─── Production format: structured JSON lines ───────────
+const prodFormat = winston.format.combine(
+  winston.format.timestamp(),
+  winston.format.errors({ stack: true }),
+  winston.format.json()
+);
 
-// Create the logger instance
 const logger = winston.createLogger({
-  level: level(),
+  level: isProduction ? 'info' : 'debug',
   levels,
-  format,
-  transports,
+  format: isProduction ? prodFormat : devFormat,
+  defaultMeta: { service: 'flowapp-api' },
+  transports: [new winston.transports.Console()],
 });
 
 module.exports = logger;

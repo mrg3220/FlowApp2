@@ -12,15 +12,23 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const compression = require('compression');
+const hpp = require('hpp');
 const rateLimit = require('express-rate-limit');
 const config = require('./config');
 const errorHandler = require('./middleware/errorHandler');
-const logger = require('./utils/logger'); // EA Standard: Structured Logger
+const requestLogger = require('./middleware/requestLogger');
+const logger = require('./utils/logger');
+const { getRedis, isReady: isRedisReady, disconnectRedis } = require('./config/redis');
+const prisma = require('./config/database');
 
 // ─── Route imports ───────────────────────────────────────
 const authRoutes = require('./routes/auth');
-const classRoutes = require('./routes/classes');
-const sessionRoutes = require('./routes/sessions');
+const programOfferingRoutes = require('./routes/programOfferings'); // "Programs" (was classes)
+const classInstanceRoutes = require('./routes/classInstances');     // "Classes" (was sessions)
+// Legacy route aliases for backward compatibility
+const classRoutes = require('./routes/classes');                    // Deprecated: use /api/programs
+const sessionRoutes = require('./routes/sessions');                 // Deprecated: use /api/classes
 const checkInRoutes = require('./routes/checkins');
 const userRoutes = require('./routes/users');
 const schoolRoutes = require('./routes/schools');
@@ -50,9 +58,12 @@ const virtualRoutes = require('./routes/virtual');
 const competitionRoutes = require('./routes/competitions');
 const adminRoutes = require('./routes/admin');
 const sreRoutes = require('./routes/sre');
-const { requestMetricsMiddleware } = require('./middleware/requestMetrics');
+const { requestMetricsMiddleware, getMetricsSnapshot } = require('./middleware/requestMetrics');
 
 const app = express();
+
+// ─── Initialize Redis (lazy, non-blocking) ───────────────
+getRedis();
 
 // ──────────────────────────────────────────────────────────
 // Security Middleware
@@ -76,16 +87,35 @@ const corsOptions = {
     : config.corsOrigin.split(',').map((o) => o.trim()),
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
   maxAge: 600,  // Pre-flight cache: 10 minutes
 };
 app.use(cors(corsOptions));
 
 /**
+ * Compression — gzip/deflate response bodies.
+ * Reduces bandwidth by ~70% for JSON payloads.
+ * Skip for responses < 1KB (compression overhead not worth it).
+ */
+app.use(compression({ threshold: 1024 }));
+
+/**
+ * HPP — HTTP Parameter Pollution protection.
+ * Mitigates: parameter pollution attacks that exploit Express
+ * handling of duplicate query parameters.
+ */
+app.use(hpp());
+
+/**
  * Body parser with size limit.
  * Mitigates: denial-of-service via oversized JSON payloads.
- * 1MB is generous for a JSON API; adjust if file uploads are added.
  */
 app.use(express.json({ limit: '1mb' }));
+
+/**
+ * HTTP request logger — structured access logs for observability.
+ */
+app.use(requestLogger);
 
 /**
  * Request metrics collector — tracks throughput, latency,
@@ -98,41 +128,144 @@ app.use(requestMetricsMiddleware);
  * Mitigates: brute-force attacks, scraping, denial of service.
  * 200 requests per 15-minute window per IP.
  */
+/**
+ * Build rate-limit store configuration.
+ * Uses Redis when available for multi-instance consistency;
+ * falls back to in-memory for single-instance deployments.
+ */
+function buildRateLimitStore(prefix = 'rl') {
+  if (config.redisUrl) {
+    try {
+      const { RedisStore } = require('rate-limit-redis');
+      return new RedisStore({
+        sendCommand: (...args) => getRedis().call(...args),
+        prefix: `${prefix}:`,
+      });
+    } catch (err) {
+      logger.warn(`Rate-limit Redis store unavailable: ${err.message} — using in-memory`);
+    }
+  }
+  return undefined; // express-rate-limit default MemoryStore
+}
+
 const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,  // 15 minutes
-  max: 200,                    // requests per window per IP
-  standardHeaders: true,       // Return rate limit info in RateLimit-* headers
-  legacyHeaders: false,        // Disable X-RateLimit-* headers
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: buildRateLimitStore('rl-global'),
   message: { error: 'Too many requests. Please try again later.' },
 });
 app.use(globalLimiter);
 
-/**
- * Strict rate limiter for authentication endpoints.
- * Mitigates: credential stuffing, brute-force login attacks.
- * 15 attempts per 15-minute window per IP.
- */
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 15,
+  store: buildRateLimitStore('rl-auth'),
   message: { error: 'Too many authentication attempts. Please wait 15 minutes.' },
 });
 
-/**
- * Stricter rate limiter for public/unauthenticated write endpoints.
- * Mitigates: ticket/order spam, kiosk enumeration, bot abuse.
- * 30 requests per 15-minute window per IP.
- */
 const publicWriteLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 30,
+  store: buildRateLimitStore('rl-public'),
   message: { error: 'Too many requests. Please try again later.' },
 });
 
-// ─── Health check (no auth, lightweight) ─────────────────
-app.get('/api/health', (_req, res) => {
-  logger.debug('Health check probe received');
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+// ──────────────────────────────────────────────────────────
+// Health & Observability Endpoints (no auth)
+// ──────────────────────────────────────────────────────────
+
+/**
+ * Liveness probe — checks API, database, and Redis health.
+ * Used by Docker HEALTHCHECK and Kubernetes livenessProbe.
+ */
+app.get('/api/health', async (_req, res) => {
+  const checks = { api: 'ok' };
+  let httpStatus = 200;
+
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    checks.database = 'ok';
+  } catch {
+    checks.database = 'error';
+    httpStatus = 503;
+  }
+
+  try {
+    if (isRedisReady()) {
+      await getRedis().ping();
+      checks.redis = 'ok';
+    } else {
+      checks.redis = 'not-configured';
+    }
+  } catch {
+    checks.redis = 'degraded';
+  }
+
+  res.status(httpStatus).json({
+    status: httpStatus === 200 ? 'healthy' : 'unhealthy',
+    timestamp: new Date().toISOString(),
+    uptime: Math.round(process.uptime()),
+    version: process.env.npm_package_version || '1.0.0',
+    checks,
+  });
+});
+
+/**
+ * Readiness probe — indicates the server can accept traffic.
+ */
+app.get('/api/health/ready', async (_req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ status: 'ready' });
+  } catch {
+    res.status(503).json({ status: 'not-ready', reason: 'database-unavailable' });
+  }
+});
+
+/**
+ * Prometheus-compatible metrics endpoint.
+ * Exports key counters and gauges in text exposition format.
+ */
+app.get('/api/metrics/prometheus', (_req, res) => {
+  const snapshot = getMetricsSnapshot();
+  const mem = process.memoryUsage();
+  const lines = [
+    '# HELP flowapp_http_requests_total Total HTTP requests',
+    '# TYPE flowapp_http_requests_total counter',
+    `flowapp_http_requests_total ${snapshot.lifetime.totalRequests}`,
+    '',
+    '# HELP flowapp_http_errors_total Total HTTP errors (4xx+5xx)',
+    '# TYPE flowapp_http_errors_total counter',
+    `flowapp_http_errors_total ${snapshot.lifetime.totalErrors}`,
+    '',
+    '# HELP flowapp_http_request_duration_ms_avg Average request duration',
+    '# TYPE flowapp_http_request_duration_ms_avg gauge',
+    `flowapp_http_request_duration_ms_avg ${snapshot.lifetime.avgLatencyMs}`,
+    '',
+    '# HELP flowapp_http_requests_per_minute Requests per minute (60m window)',
+    '# TYPE flowapp_http_requests_per_minute gauge',
+    `flowapp_http_requests_per_minute ${snapshot.window.requestsPerMinute}`,
+    '',
+    '# HELP flowapp_process_uptime_seconds Process uptime',
+    '# TYPE flowapp_process_uptime_seconds gauge',
+    `flowapp_process_uptime_seconds ${Math.round(process.uptime())}`,
+    '',
+    '# HELP flowapp_process_memory_rss_bytes Resident Set Size',
+    '# TYPE flowapp_process_memory_rss_bytes gauge',
+    `flowapp_process_memory_rss_bytes ${mem.rss}`,
+    '',
+    '# HELP flowapp_process_memory_heap_used_bytes V8 heap used',
+    '# TYPE flowapp_process_memory_heap_used_bytes gauge',
+    `flowapp_process_memory_heap_used_bytes ${mem.heapUsed}`,
+    '',
+  ];
+  for (const [code, count] of Object.entries(snapshot.statusCodes)) {
+    lines.push(`flowapp_http_responses_total{status="${code}"} ${count}`);
+  }
+  res.set('Content-Type', 'text/plain; version=0.0.4; charset=utf-8');
+  res.send(lines.join('\n') + '\n');
 });
 
 // ──────────────────────────────────────────────────────────
@@ -144,8 +277,11 @@ app.use('/api/auth', authLimiter, authRoutes);
 
 // Standard authenticated API routes
 app.use('/api/schools', schoolRoutes);
-app.use('/api/classes', classRoutes);
-app.use('/api/sessions', sessionRoutes);
+app.use('/api/programs', programOfferingRoutes);      // NEW: Program offerings (was /api/classes)
+app.use('/api/class-instances', classInstanceRoutes); // NEW: Class instances (was /api/sessions)
+// Legacy aliases for backward compatibility
+app.use('/api/classes', classRoutes);                 // Deprecated: use /api/programs
+app.use('/api/sessions', sessionRoutes);              // Deprecated: use /api/class-instances
 app.use('/api/checkins', checkInRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/enrollments', enrollmentRoutes);
@@ -210,6 +346,7 @@ function gracefulShutdown(signal) {
     logger.info('   HTTP server closed');
     try { await require('./config/database').$disconnect(); } catch { /* ignore */ }
     logger.info('   Database disconnected');
+    try { await disconnectRedis(); } catch { /* ignore */ }
     process.exit(0);
   });
   // Force exit after 10s if connections don't drain

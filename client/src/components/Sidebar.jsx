@@ -61,8 +61,8 @@ export default function Sidebar() {
         {/* School Management */}
         {(isOwner || isSchoolStaff || isInstructor) && (
           <SidebarSection title="School Management">
-            <SLink to="/classes" icon="🥋" label="Classes" />
-            <SLink to="/sessions" icon="📅" label="Sessions" />
+            <SLink to="/programs" icon="🥋" label="Programs" />
+            <SLink to="/classes" icon="📅" label="Classes" />
             <SLink to="/calendar" icon="🗓️" label="Calendar" />
             <SLink to="/checkin" icon="✅" label="Check In" />
             {isStaff && <SLink to="/kiosk" icon="🖥️" label="Kiosk" />}
@@ -86,8 +86,8 @@ export default function Sidebar() {
         {isStudent && (
           <SidebarSection title="My Training">
             <SLink to="/student-portal" icon="🎓" label="My Portal" />
-            <SLink to="/classes" icon="🥋" label="Classes" />
-            <SLink to="/sessions" icon="📅" label="Sessions" />
+            <SLink to="/programs" icon="🥋" label="Programs" />
+            <SLink to="/classes" icon="📅" label="Classes" />
             <SLink to="/calendar" icon="🗓️" label="Calendar" />
             <SLink to="/events" icon="🎪" label="Events" />
             <SLink to="/curriculum" icon="📚" label="Curriculum" />

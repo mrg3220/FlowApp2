@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
+import ErrorBoundary from './components/ErrorBoundary';
 import Sidebar from './components/Sidebar';
 import ProtectedRoute from './components/ProtectedRoute';
 import AIChat from './components/AIChat';
@@ -8,7 +9,7 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
 import ClassesPage from './pages/ClassesPage';
-import SessionsPage from './pages/SessionsPage';
+import ProgramsPage from './pages/ProgramsPage';
 import CheckInPage from './pages/CheckInPage';
 import KioskPage from './pages/KioskPage';
 import SchoolsPage from './pages/SchoolsPage';
@@ -59,6 +60,7 @@ export default function App() {
   }
 
   return (
+    <ErrorBoundary>
     <Routes>
       {/* Public routes — no auth required */}
       <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <LoginPage />} />
@@ -85,6 +87,14 @@ export default function App() {
         }
       />
       <Route
+        path="/programs"
+        element={
+          <ProtectedRoute>
+            <AppLayout><ProgramsPage /></AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/classes"
         element={
           <ProtectedRoute>
@@ -92,14 +102,8 @@ export default function App() {
           </ProtectedRoute>
         }
       />
-      <Route
-        path="/sessions"
-        element={
-          <ProtectedRoute>
-            <AppLayout><SessionsPage /></AppLayout>
-          </ProtectedRoute>
-        }
-      />
+      {/* Legacy redirect from /sessions to /classes */}
+      <Route path="/sessions" element={<Navigate to="/classes" />} />
       <Route
         path="/calendar"
         element={
@@ -296,5 +300,6 @@ export default function App() {
       {/* Default redirect */}
       <Route path="*" element={<Navigate to={user ? '/dashboard' : '/login'} />} />
     </Routes>
+    </ErrorBoundary>
   );
 }

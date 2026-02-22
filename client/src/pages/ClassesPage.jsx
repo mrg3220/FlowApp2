@@ -1,16 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { classApi, userApi } from '../api/client';
-
-const DAYS = [
-  { value: 'MON', label: 'Monday' },
-  { value: 'TUE', label: 'Tuesday' },
-  { value: 'WED', label: 'Wednesday' },
-  { value: 'THU', label: 'Thursday' },
-  { value: 'FRI', label: 'Friday' },
-  { value: 'SAT', label: 'Saturday' },
-  { value: 'SUN', label: 'Sunday' },
-];
+import { classInstanceApi, programApi, checkInApi } from '../api/client';
 
 // Convert 24h "HH:mm" to 12h "h:mm AM/PM"
 const formatTime12h = (time24) => {
@@ -22,43 +12,35 @@ const formatTime12h = (time24) => {
 };
 
 export default function ClassesPage() {
-  const { isStaff, isOwner } = useAuth();
+  const { isStaff } = useAuth();
   const [classes, setClasses] = useState([]);
-  const [instructors, setInstructors] = useState([]);
+  const [programs, setPrograms] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedClass, setSelectedClass] = useState(null);
-  const [editingClass, setEditingClass] = useState(null);
+  const [attendance, setAttendance] = useState(null);
   const [error, setError] = useState('');
+  const [collapsedPrograms, setCollapsedPrograms] = useState({});
   const [form, setForm] = useState({
-    name: '',
-    discipline: '',
-    skillLevel: 'ALL_LEVELS',
-    capacity: 20,
-    description: '',
-    instructorId: '',
+    programOfferingId: '',
+    classDate: new Date().toISOString().split('T')[0],
+    startTime: '18:00',
+    endTime: '19:30',
   });
-  const [scheduleForm, setScheduleForm] = useState({
-    dayOfWeek: 'MON',
-    startTime: '09:00',
-    endTime: '10:00',
-    effectiveFrom: new Date().toISOString().split('T')[0],
-    effectiveUntil: '',
-  });
-  const [editingSchedule, setEditingSchedule] = useState(null);
 
   useEffect(() => {
-    fetchClasses();
-    if (isStaff) {
-      userApi.getAll({ role: 'INSTRUCTOR' }).then(setInstructors).catch(() => {});
-    }
-  }, [isStaff]);
+    fetchData();
+  }, []);
 
-  const fetchClasses = async () => {
+  const fetchData = async () => {
     try {
-      const data = await classApi.getAll();
-      setClasses(data);
+      const [classesData, programsData] = await Promise.all([
+        classInstanceApi.getAll(),
+        programApi.getAll(),
+      ]);
+      setClasses(classesData);
+      setPrograms(programsData);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -67,116 +49,71 @@ export default function ClassesPage() {
   };
 
   const handleChange = (e) => {
-    const value = e.target.type === 'number' ? parseInt(e.target.value, 10) : e.target.value;
-    setForm({ ...form, [e.target.name]: value });
+    setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const openCreate = () => {
-    setEditingClass(null);
-    setForm({ name: '', discipline: '', skillLevel: 'ALL_LEVELS', capacity: 20, description: '', instructorId: '' });
-    setShowModal(true);
-  };
-
-  const openEdit = (cls) => {
-    setEditingClass(cls);
-    setForm({
-      name: cls.name,
-      discipline: cls.discipline,
-      skillLevel: cls.skillLevel,
-      capacity: cls.capacity,
-      description: cls.description || '',
-      instructorId: cls.instructorId,
-    });
-    setShowModal(true);
-  };
-
-  const handleSubmit = async (e) => {
+  const handleCreate = async (e) => {
     e.preventDefault();
     setError('');
     try {
-      if (editingClass) {
-        await classApi.update(editingClass.id, form);
-      } else {
-        await classApi.create(form);
-      }
-      setShowModal(false);
-      fetchClasses();
+      await classInstanceApi.create(form);
+      setShowCreateModal(false);
+      fetchData();
     } catch (err) {
       setError(err.message);
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to deactivate this class?')) return;
+  const handleStatusChange = async (id, status) => {
     try {
-      await classApi.delete(id);
-      fetchClasses();
+      await classInstanceApi.updateStatus(id, status);
+      fetchData();
+      if (selectedClass?.id === id) {
+        viewAttendance(id);
+      }
     } catch (err) {
       setError(err.message);
     }
   };
 
-  // Schedule management
-  const openScheduleModal = (cls) => {
-    setSelectedClass(cls);
-    setEditingSchedule(null);
-    setScheduleForm({
-      dayOfWeek: 'MON',
-      startTime: '09:00',
-      endTime: '10:00',
-      effectiveFrom: new Date().toISOString().split('T')[0],
-      effectiveUntil: '',
-    });
-    setShowScheduleModal(true);
+  const viewAttendance = async (classId) => {
+    try {
+      const data = await checkInApi.getAttendance(classId);
+      setAttendance(data);
+      setSelectedClass(classes.find((c) => c.id === classId) || null);
+      setShowDetailModal(true);
+    } catch (err) {
+      setError(err.message);
+    }
   };
 
-  const editSchedule = (schedule) => {
-    setEditingSchedule(schedule);
-    setScheduleForm({
-      dayOfWeek: schedule.dayOfWeek,
-      startTime: schedule.startTime,
-      endTime: schedule.endTime,
-      effectiveFrom: schedule.effectiveFrom ? schedule.effectiveFrom.split('T')[0] : '',
-      effectiveUntil: schedule.effectiveUntil ? schedule.effectiveUntil.split('T')[0] : '',
+  const formatDate = (dateStr) => {
+    return new Date(dateStr).toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
     });
   };
 
-  const handleSaveSchedule = async (e) => {
-    e.preventDefault();
-    setError('');
-    try {
-      if (editingSchedule) {
-        await classApi.updateSchedule(selectedClass.id, editingSchedule.id, scheduleForm);
-      } else {
-        await classApi.addSchedule(selectedClass.id, scheduleForm);
+  // Group classes by program curriculum
+  const groupedClasses = useMemo(() => {
+    const groups = {};
+    classes.forEach((cls) => {
+      const programName = cls.class?.program?.name || cls.class?.discipline || 'Uncategorized';
+      if (!groups[programName]) {
+        groups[programName] = [];
       }
-      // Refresh class data
-      const updatedClass = await classApi.getById(selectedClass.id);
-      setSelectedClass(updatedClass);
-      setEditingSchedule(null);
-      setScheduleForm({
-        dayOfWeek: 'MON',
-        startTime: '09:00',
-        endTime: '10:00',
-        effectiveFrom: new Date().toISOString().split('T')[0],
-        effectiveUntil: '',
-      });
-      fetchClasses();
-    } catch (err) {
-      setError(err.message);
-    }
-  };
+      groups[programName].push(cls);
+    });
+    // Sort classes within each group by date
+    Object.values(groups).forEach((arr) => {
+      arr.sort((a, b) => new Date(a.sessionDate) - new Date(b.sessionDate));
+    });
+    return groups;
+  }, [classes]);
 
-  const handleDeleteSchedule = async (scheduleId) => {
-    if (!window.confirm('Delete this recurring schedule?')) return;
-    try {
-      await classApi.deleteSchedule(selectedClass.id, scheduleId);
-      const updatedClass = await classApi.getById(selectedClass.id);
-      setSelectedClass(updatedClass);
-      fetchClasses();
-    } catch (err) {
-      setError(err.message);
-    }
+  const toggleProgram = (program) => {
+    setCollapsedPrograms((prev) => ({ ...prev, [program]: !prev[program] }));
   };
 
   if (loading) return <div className="loading">Loading classes...</div>;
@@ -186,7 +123,7 @@ export default function ClassesPage() {
       <div className="page-header">
         <h1>Classes</h1>
         {isStaff && (
-          <button className="btn btn-primary" onClick={openCreate}>
+          <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
             + New Class
           </button>
         )}
@@ -194,306 +131,194 @@ export default function ClassesPage() {
 
       {error && <div className="alert alert-error">{error}</div>}
 
-      <div className="card">
-        {classes.length === 0 ? (
-          <p style={{ color: 'var(--color-text-light)' }}>
-            No classes yet. {isStaff ? 'Create your first class!' : 'Check back later.'}
-          </p>
-        ) : (
-          <div className="table-wrapper">
-            <table>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Program</th>
-                  <th>Level</th>
-                  <th>Capacity</th>
-                  <th>Instructor</th>
-                  <th>Schedule</th>
-                  {isStaff && <th>Actions</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {classes.map((cls) => (
-                  <tr key={cls.id}>
-                    <td><strong>{cls.name}</strong></td>
-                    <td>{cls.discipline}</td>
-                    <td>{cls.skillLevel.replace('_', ' ')}</td>
-                    <td>{cls.capacity}</td>
-                    <td>{cls.instructor?.firstName} {cls.instructor?.lastName}</td>
-                    <td>
-                      {cls.schedules?.length > 0 ? (
-                        cls.schedules.map((s) => (
-                          <div key={s.id} style={{ fontSize: '0.85rem' }}>
-                            {DAYS.find((d) => d.value === s.dayOfWeek)?.label?.slice(0, 3)} {s.startTime}-{s.endTime}
-                          </div>
-                        ))
-                      ) : (
-                        <span style={{ color: '#888', fontSize: '0.85rem' }}>No schedule</span>
-                      )}
-                      {isStaff && (
-                        <button
-                          className="btn btn-sm btn-outline"
-                          style={{ marginTop: '0.25rem', fontSize: '0.75rem' }}
-                          onClick={() => openScheduleModal(cls)}
-                        >
-                          {cls.schedules?.length > 0 ? 'Edit' : '+ Add'}
-                        </button>
-                      )}
-                    </td>
-                    {isStaff && (
-                      <td>
-                        <button className="btn btn-outline btn-sm" onClick={() => openEdit(cls)}>
-                          Edit
-                        </button>
-                        {isOwner && (
-                          <button
-                            className="btn btn-danger btn-sm"
-                            style={{ marginLeft: '0.5rem' }}
-                            onClick={() => handleDelete(cls.id)}
-                          >
-                            Delete
-                          </button>
-                        )}
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      {/* Grouped Classes by Program */}
+      {classes.length === 0 ? (
+        <div className="card">
+          <p style={{ color: 'var(--color-text-light)' }}>No classes found. Add program schedules to auto-generate classes.</p>
+        </div>
+      ) : (
+        Object.entries(groupedClasses).map(([programName, programClasses]) => (
+          <div key={programName} className="card" style={{ marginBottom: '1rem' }}>
+            {/* Program Header - Collapsible */}
+            <div
+              onClick={() => toggleProgram(programName)}
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                cursor: 'pointer',
+                padding: '0.75rem 0',
+                borderBottom: collapsedPrograms[programName] ? 'none' : '1px solid #e0e0e0',
+                marginBottom: collapsedPrograms[programName] ? 0 : '0.75rem',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <span style={{ fontSize: '1.2rem' }}>{collapsedPrograms[programName] ? '▶' : '▼'}</span>
+                <h3 style={{ margin: 0 }}>🥋 {programName}</h3>
+                <span className="badge badge-scheduled" style={{ fontSize: '0.75rem' }}>
+                  {programClasses.length} class{programClasses.length !== 1 ? 'es' : ''}
+                </span>
+              </div>
+              <span style={{ color: '#888', fontSize: '0.85rem' }}>
+                {programClasses.filter((c) => c.status === 'SCHEDULED').length} upcoming
+              </span>
+            </div>
 
-      {/* Create/Edit Modal */}
-      {showModal && (
-        <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowModal(false); }}>
-          <div className="modal">
-            <h2>{editingClass ? 'Edit Class' : 'New Class'}</h2>
-            <form onSubmit={handleSubmit}>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Class Name</label>
-                  <input
-                    type="text"
-                    name="name"
-                    className="form-control"
-                    value={form.name}
-                    onChange={handleChange}
-                    placeholder="e.g. Evening Karate"
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Program</label>
-                  <input
-                    type="text"
-                    name="discipline"
-                    className="form-control"
-                    value={form.discipline}
-                    onChange={handleChange}
-                    placeholder="e.g. Karate, BJJ, Kickboxing"
-                    required
-                  />
-                </div>
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Skill Level</label>
-                  <select name="skillLevel" className="form-control" value={form.skillLevel} onChange={handleChange}>
-                    <option value="ALL_LEVELS">All Levels</option>
-                    <option value="BEGINNER">Beginner</option>
-                    <option value="INTERMEDIATE">Intermediate</option>
-                    <option value="ADVANCED">Advanced</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>Capacity</label>
-                  <input
-                    type="number"
-                    name="capacity"
-                    className="form-control"
-                    value={form.capacity}
-                    onChange={handleChange}
-                    min={1}
-                    required
-                  />
-                </div>
-              </div>
-              {isOwner && instructors.length > 0 && (
-                <div className="form-group">
-                  <label>Instructor</label>
-                  <select name="instructorId" className="form-control" value={form.instructorId} onChange={handleChange}>
-                    <option value="">Select instructor...</option>
-                    {instructors.map((i) => (
-                      <option key={i.id} value={i.id}>
-                        {i.firstName} {i.lastName}
-                      </option>
+            {/* Classes Table - Collapsible */}
+            {!collapsedPrograms[programName] && (
+              <div className="table-wrapper">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Program</th>
+                      <th>Time</th>
+                      <th>Instructor</th>
+                      <th>Attendance</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {programClasses.map((cls) => (
+                      <tr key={cls.id}>
+                        <td>{formatDate(cls.sessionDate)}</td>
+                        <td><strong>{cls.class?.name}</strong></td>
+                        <td>{formatTime12h(cls.startTime)} - {formatTime12h(cls.endTime)}</td>
+                        <td>{cls.class?.instructor?.firstName} {cls.class?.instructor?.lastName}</td>
+                        <td>{cls._count?.checkIns || 0} / {cls.class?.capacity || '?'}</td>
+                        <td>
+                          <span className={`badge badge-${cls.status.toLowerCase().replace('_', '-')}`}>
+                            {cls.status.replace('_', ' ')}
+                          </span>
+                        </td>
+                        <td>
+                          <button
+                            className="btn btn-outline btn-sm"
+                            onClick={() => viewAttendance(cls.id)}
+                          >
+                            View
+                          </button>
+                          {isStaff && cls.status === 'SCHEDULED' && (
+                            <button
+                              className="btn btn-success btn-sm"
+                              style={{ marginLeft: '0.5rem' }}
+                              onClick={() => handleStatusChange(cls.id, 'IN_PROGRESS')}
+                            >
+                              Start
+                            </button>
+                          )}
+                          {isStaff && cls.status === 'IN_PROGRESS' && (
+                            <button
+                              className="btn btn-secondary btn-sm"
+                              style={{ marginLeft: '0.5rem' }}
+                              onClick={() => handleStatusChange(cls.id, 'COMPLETED')}
+                            >
+                              Complete
+                            </button>
+                          )}
+                        </td>
+                      </tr>
                     ))}
-                  </select>
-                </div>
-              )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        ))
+      )}
+
+      {/* Create Class Modal */}
+      {showCreateModal && (
+        <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowCreateModal(false); }}>
+          <div className="modal">
+            <h2>Create Class</h2>
+            <form onSubmit={handleCreate}>
               <div className="form-group">
-                <label>Description</label>
-                <textarea
-                  name="description"
-                  className="form-control"
-                  value={form.description}
-                  onChange={handleChange}
-                  rows={3}
-                  placeholder="Brief description of the class"
-                />
+                <label>Program</label>
+                <select name="programOfferingId" className="form-control" value={form.programOfferingId} onChange={handleChange} required>
+                  <option value="">Select a program...</option>
+                  {programs.map((prog) => (
+                    <option key={prog.id} value={prog.id}>
+                      {prog.name} — {prog.program?.name || prog.discipline}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Date</label>
+                <input type="date" name="classDate" className="form-control" value={form.classDate} onChange={handleChange} required />
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Start Time</label>
+                  <input type="time" name="startTime" className="form-control" value={form.startTime} onChange={handleChange} required />
+                </div>
+                <div className="form-group">
+                  <label>End Time</label>
+                  <input type="time" name="endTime" className="form-control" value={form.endTime} onChange={handleChange} required />
+                </div>
               </div>
               <div className="modal-actions">
-                <button type="button" className="btn btn-outline" onClick={() => setShowModal(false)}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary">
-                  {editingClass ? 'Update' : 'Create'} Class
-                </button>
+                <button type="button" className="btn btn-outline" onClick={() => setShowCreateModal(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">Create Class</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* Schedule Modal */}
-      {showScheduleModal && selectedClass && (
-        <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowScheduleModal(false); }}>
-          <div className="modal" style={{ maxWidth: '600px' }}>
-            <h2>📅 Class Schedule — {selectedClass.name}</h2>
-            <p style={{ color: '#666', marginBottom: '1rem' }}>
-              Set recurring weekly schedule. Classes repeat on the same day(s) each week.
+      {/* Attendance Detail Modal */}
+      {showDetailModal && attendance && (
+        <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowDetailModal(false); }}>
+          <div className="modal">
+            <h2>Attendance — {attendance.class.name}</h2>
+            <p style={{ color: 'var(--color-text-light)', marginBottom: '1rem' }}>
+              {attendance.class.program?.name || attendance.class.discipline} · {formatDate(attendance.session.date)} · {formatTime12h(attendance.session.startTime)}-{formatTime12h(attendance.session.endTime)}
             </p>
 
-            {/* Existing schedules */}
-            {selectedClass.schedules?.length > 0 && (
-              <div style={{ marginBottom: '1.5rem' }}>
-                <h4 style={{ marginBottom: '0.5rem' }}>Current Schedule</h4>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  {selectedClass.schedules.map((s) => (
-                    <div
-                      key={s.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '0.75rem',
-                        background: editingSchedule?.id === s.id ? '#e3f2fd' : '#f5f5f5',
-                        borderRadius: '8px',
-                      }}
-                    >
-                      <span>
-                        <strong>{DAYS.find((d) => d.value === s.dayOfWeek)?.label}</strong>
-                        {' '}{formatTime12h(s.startTime)} - {formatTime12h(s.endTime)}
-                        {s.effectiveFrom && <span style={{ color: '#666', fontSize: '0.85rem', marginLeft: '0.5rem' }}>from {new Date(s.effectiveFrom).toLocaleDateString()}</span>}
-                        {s.effectiveUntil && <span style={{ color: '#666', fontSize: '0.85rem' }}> until {new Date(s.effectiveUntil).toLocaleDateString()}</span>}
-                      </span>
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <button className="btn btn-sm btn-outline" onClick={() => editSchedule(s)}>
-                          Edit
-                        </button>
-                        <button
-                          className="btn btn-sm btn-outline"
-                          style={{ color: '#dc3545' }}
-                          onClick={() => handleDeleteSchedule(s.id)}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+            <div className="stats-grid" style={{ marginBottom: '1rem' }}>
+              <div className="stat-card">
+                <div className="stat-value">{attendance.attendance.total}</div>
+                <div className="stat-label">Checked In</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-value">{attendance.attendance.capacity}</div>
+                <div className="stat-label">Capacity</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-value">{attendance.attendance.spotsRemaining}</div>
+                <div className="stat-label">Spots Left</div>
+              </div>
+            </div>
+
+            {attendance.attendance.students.length === 0 ? (
+              <p style={{ color: 'var(--color-text-light)', textAlign: 'center' }}>No students checked in yet.</p>
+            ) : (
+              <div className="table-wrapper">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Student</th>
+                      <th>Method</th>
+                      <th>Time</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {attendance.attendance.students.map((s) => (
+                      <tr key={s.checkInId}>
+                        <td>{s.student.firstName} {s.student.lastName}</td>
+                        <td><span className="badge badge-scheduled">{s.method}</span></td>
+                        <td>{new Date(s.checkedInAt).toLocaleTimeString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
 
-            {/* Add/Edit schedule form */}
-            <form onSubmit={handleSaveSchedule}>
-              <h4 style={{ marginBottom: '0.5rem' }}>{editingSchedule ? 'Edit Schedule' : 'Add Recurring Schedule'}</h4>
-              <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
-                <div className="form-group">
-                  <label>Day of Week</label>
-                  <select
-                    className="form-control"
-                    value={scheduleForm.dayOfWeek}
-                    onChange={(e) => setScheduleForm({ ...scheduleForm, dayOfWeek: e.target.value })}
-                  >
-                    {DAYS.map((d) => (
-                      <option key={d.value} value={d.value}>{d.label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>Start Time</label>
-                  <input
-                    type="time"
-                    className="form-control"
-                    value={scheduleForm.startTime}
-                    onChange={(e) => setScheduleForm({ ...scheduleForm, startTime: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>End Time</label>
-                  <input
-                    type="time"
-                    className="form-control"
-                    value={scheduleForm.endTime}
-                    onChange={(e) => setScheduleForm({ ...scheduleForm, endTime: e.target.value })}
-                    required
-                  />
-                </div>
-              </div>
-              <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginTop: '0.75rem' }}>
-                <div className="form-group">
-                  <label>Start Date</label>
-                  <input
-                    type="date"
-                    className="form-control"
-                    value={scheduleForm.effectiveFrom}
-                    onChange={(e) => setScheduleForm({ ...scheduleForm, effectiveFrom: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>End Date (optional)</label>
-                  <input
-                    type="date"
-                    className="form-control"
-                    value={scheduleForm.effectiveUntil}
-                    onChange={(e) => setScheduleForm({ ...scheduleForm, effectiveUntil: e.target.value })}
-                  />
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
-                <button type="submit" className="btn btn-primary">
-                  {editingSchedule ? 'Update' : 'Add'} Schedule
-                </button>
-                {editingSchedule && (
-                  <button
-                    type="button"
-                    className="btn btn-outline"
-                    onClick={() => {
-                      setEditingSchedule(null);
-                      setScheduleForm({
-                        dayOfWeek: 'MON',
-                        startTime: '09:00',
-                        endTime: '10:00',
-                        effectiveFrom: new Date().toISOString().split('T')[0],
-                        effectiveUntil: '',
-                      });
-                    }}
-                  >
-                    Cancel
-                  </button>
-                )}
-              </div>
-            </form>
-
-            <div style={{ marginTop: '1.5rem', borderTop: '1px solid #eee', paddingTop: '1rem' }}>
-              <button className="btn btn-outline" onClick={() => setShowScheduleModal(false)}>
-                Done
-              </button>
+            <div className="modal-actions">
+              <button className="btn btn-outline" onClick={() => setShowDetailModal(false)}>Close</button>
             </div>
           </div>
         </div>

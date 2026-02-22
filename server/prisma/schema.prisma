@@ -251,6 +251,26 @@ enum TicketStatus {
 
 // ─── Models ──────────────────────────────────────────────
 
+/// Refresh tokens for JWT rotation. Each row represents one active session.
+/// Tokens are hashed (SHA-256) before storage to prevent leakage if the DB is compromised.
+model RefreshToken {
+  id          String   @id @default(uuid())
+  tokenHash   String   @unique @map("token_hash")   // SHA-256 hash of the opaque token
+  userId      String   @map("user_id")
+  expiresAt   DateTime @map("expires_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  revokedAt   DateTime? @map("revoked_at")           // Non-null = revoked
+  replacedBy  String?  @map("replaced_by")           // Points to the successor token (rotation chain)
+  userAgent   String?  @map("user_agent")            // Browser/device info for session management
+  ipAddress   String?  @map("ip_address")
+
+  user        User     @relation("UserRefreshTokens", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
@@ -317,6 +337,9 @@ model User {
   disabledAt         DateTime?      @map("disabled_at")
   disabledBy         String?        @map("disabled_by")
   auditLogs          AuditLog[]     @relation("AuditPerformer")
+
+  // Auth — refresh token sessions
+  refreshTokens      RefreshToken[] @relation("UserRefreshTokens")
 
   @@map("users")
 }
@@ -430,10 +453,13 @@ model Enrollment {
   @@map("enrollments")
 }
 
+// Note: "Class" model represents what the UI calls "Program" (scheduled class offerings)
+// ClassSession represents what the UI calls "Class" (individual class meetings)
 model Class {
   id           String     @id @default(uuid())
   name         String
-  discipline   String
+  discipline   String?                          // Legacy field - use programId for curriculum link
+  programId    String?    @map("program_id")   // Links to curriculum Program
   skillLevel   SkillLevel @default(ALL_LEVELS) @map("skill_level")
   capacity     Int
   description  String?
@@ -444,6 +470,7 @@ model Class {
   updatedAt    DateTime   @updatedAt @map("updated_at")
 
   // Relations
+  program      Program?        @relation("ProgramOfferings", fields: [programId], references: [id])
   instructor   User            @relation("InstructorClasses", fields: [instructorId], references: [id])
   school       School          @relation(fields: [schoolId], references: [id])
   schedules    ClassSchedule[]
@@ -631,11 +658,12 @@ model Program {
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt @map("updated_at")
 
-  school      School?             @relation(fields: [schoolId], references: [id])
-  belts       Belt[]
-  enrollments ProgramEnrollment[]
-  curriculumItems  CurriculumItem[]  @relation("CurriculumProgram")
-  virtualContent   VirtualContent[]  @relation("VirtualContentProgram")
+  school           School?             @relation(fields: [schoolId], references: [id])
+  belts            Belt[]
+  enrollments      ProgramEnrollment[]
+  curriculumItems  CurriculumItem[]    @relation("CurriculumProgram")
+  virtualContent   VirtualContent[]    @relation("VirtualContentProgram")
+  offerings        Class[]             @relation("ProgramOfferings")   // Scheduled class offerings using this program's curriculum
 
   @@map("programs")
 }

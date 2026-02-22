@@ -3,18 +3,21 @@
  * Authentication Routes
  * ──────────────────────────────────────────────────────────
  * POST /api/auth/register — create a new user account
- * POST /api/auth/login    — obtain a JWT token
+ * POST /api/auth/login    — obtain access + refresh tokens
+ * POST /api/auth/refresh  — rotate refresh token for new token pair
+ * POST /api/auth/logout   — revoke refresh token
  * GET  /api/auth/me       — get current user profile
  *
  * Security:
  *   - Rate limited at the router level (authLimiter in index.js)
  *   - Input validation via express-validator
  *   - Password complexity enforced both here and in controller
+ *   - Short-lived access tokens (15 min) + long-lived refresh tokens (30 days)
  * ──────────────────────────────────────────────────────────
  */
 const express = require('express');
 const { body } = require('express-validator');
-const { register, login, getMe } = require('../controllers/authController');
+const { register, login, refresh, logout, getMe } = require('../controllers/authController');
 const { authenticate } = require('../middleware/auth');
 const validate = require('../middleware/validate');
 
@@ -49,6 +52,17 @@ router.post(
   validate,
   login
 );
+
+router.post(
+  '/refresh',
+  [
+    body('refreshToken').notEmpty().withMessage('Refresh token is required'),
+  ],
+  validate,
+  refresh
+);
+
+router.post('/logout', logout);
 
 router.get('/me', authenticate, getMe);
 
