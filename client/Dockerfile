@@ -13,7 +13,7 @@
 # ─── Build stage ──────────────────────────────────────────
 # Installs npm dependencies and builds the Vite production bundle.
 # None of this carries over to the final image.
-FROM node:20-alpine AS build
+FROM node:25-alpine AS build
 
 WORKDIR /app
 
