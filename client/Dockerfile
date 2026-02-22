@@ -29,7 +29,7 @@ RUN npm run build
 # ─── Production stage — Nginx ────────────────────────────
 # Serves only the compiled static assets. No Node.js runtime,
 # no source code, no npm — minimal attack surface.
-FROM nginx:1.27-alpine
+FROM nginx:1.29-alpine
 
 # Remove default nginx config and HTML to reduce attack surface
 RUN rm -rf /usr/share/nginx/html/* /etc/nginx/conf.d/default.conf \
